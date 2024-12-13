@@ -1,6 +1,5 @@
 from typing import List
 from objects.task_object import task
-from objects.edge_node_object import edge_node
 from queues.base_queue import baseQueue
 
 class ECQueue(baseQueue):
@@ -24,7 +23,7 @@ class ECQueue(baseQueue):
     def compute_output(
         self, 
         tasks : List[task],
-        edge_nodes : List[edge_node],
+        edge_node_computing_capability,
         computation_resource_allocation_actions,
         task_offloaded_at_edge_nodes,
     ):
@@ -32,7 +31,7 @@ class ECQueue(baseQueue):
         for task, index in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(self._edge_node_index)]):
             task_index = task["task_index"]
             task_required_cycles = tasks[task_index].get_requested_computing_cycles()
-            allocated_cycles = edge_nodes[self._edge_node_index].get_computing_capability() * \
+            allocated_cycles = edge_node_computing_capability * \
                 computation_resource_allocation_actions["edge_node_" + str(self._edge_node_index)][index]
             output += allocated_cycles / task_required_cycles
         return output

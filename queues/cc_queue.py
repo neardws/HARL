@@ -1,6 +1,5 @@
 from typing import List
 from objects.task_object import task
-from objects.cloud_server_object import cloud_server
 from queues.base_queue import baseQueue
 
 class CCQueue(baseQueue):
@@ -21,7 +20,7 @@ class CCQueue(baseQueue):
     def compute_output(
         self, 
         tasks : List[task],
-        cloud: cloud_server,
+        cloud_computing_capability,
         computation_resource_allocation_actions,
         task_offloaded_at_edge_nodes,
     ):
@@ -29,7 +28,7 @@ class CCQueue(baseQueue):
         for task, index in enumerate(task_offloaded_at_edge_nodes["cloud"]):
             task_index = task["task_index"]
             task_required_cycles = tasks[task_index].get_requested_computing_cycles()
-            allocated_cycles = cloud.get_computing_capability() * \
+            allocated_cycles = cloud_computing_capability * \
                 computation_resource_allocation_actions["cloud"][index]
             output += allocated_cycles / task_required_cycles
         return output

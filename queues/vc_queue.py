@@ -1,6 +1,5 @@
 from typing import List
 from objects.task_object import task
-from objects.vehicle_object import vehicle
 from queues.base_queue import baseQueue
 
 class VCQueue(baseQueue):
@@ -24,7 +23,7 @@ class VCQueue(baseQueue):
     def compute_output(
         self, 
         tasks : List[task],
-        server_vehicles : List[vehicle],
+        server_vehicle_compute_capability,
         computation_resource_allocation_actions,
         task_offloaded_at_server_vehicles,
     ):
@@ -32,11 +31,7 @@ class VCQueue(baseQueue):
         for task, index in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(self._server_vehicle_index)]):
             task_index = task["task_index"]
             task_required_cycles = tasks[task_index].get_requested_computing_cycles()
-            allocated_cycles = server_vehicles[self._server_vehicle_index].get_computing_capability() * \
+            allocated_cycles = server_vehicle_compute_capability * \
                 computation_resource_allocation_actions["server_vehicle_" + str(self._server_vehicle_index)][index]
             output += allocated_cycles / task_required_cycles
         return output
-    
-    
-    
-    
