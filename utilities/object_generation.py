@@ -8,6 +8,7 @@ from objects.cloud_server_object import cloud_server
 from utilities.vehicular_trajectories_processing import TrajectoriesProcessing
 from utilities.wired_bandwidth import get_wired_bandwidth_between_edge_nodes_and_the_cloud
 
+# TODO the task set is changed
 def generate_task_set(
     task_num: int,
     task_seeds: list[int],
@@ -16,44 +17,29 @@ def generate_task_set(
     max_input_data_size: float,     # in MB
     min_cqu_cycles: float,          # cycles/bit
     max_cqu_cycles: float,          # cycles/bit
-    min_deadline: float,            # seconds
-    max_deadline: float,            # seconds
 ):
-    '''
-    Generate a task set with given parameters
-    Args:
-        task_num: number of tasks
-        distribution: distribution of the task parameters
-        min_input_data_size: minimum input data size
-        max_input_data_size: maximum input data size
-        min_cqu_cycles: minimum cqu cycles
-        max_cqu_cycles: maximum cqu cycles
-        min_deadline: minimum deadline
-        max_deadline: maximum deadline
-    Returns:
-        tasks: a list of tasks
-    '''
-    tasks = list()
+    tasks = []
     if distribution == "uniform":
         for _ in range(task_num):
             random.seed(task_seeds[_])
-            t = task(
-                input_data_size = random.uniform(min_input_data_size, max_input_data_size),
-                cqu_cycles = random.uniform(min_cqu_cycles, max_cqu_cycles),
-                deadline = random.uniform(min_deadline, max_deadline),
-            )
+            # 生成两个随机值
+            value1 = random.uniform(min_input_data_size, max_input_data_size)
+            value2 = random.uniform(min_input_data_size, max_input_data_size)
+
+            # 比较两个值，确定 t_min_input_data_size 和 t_max_input_data_size
+            t_min_input_data_size = min(value1, value2)
+            t_max_input_data_size = max(value1, value2)
+            
+            t = {
+                "task_index": _,
+                "min_input_data_size": t_min_input_data_size,
+                "max_input_data_size": t_max_input_data_size,
+                "cqu_cycles": random.uniform(min_cqu_cycles, max_cqu_cycles),
+            }
             tasks.append(t)
         return tasks
     elif distribution == "normal":
-        for _ in range(task_num):
-            random.seed(task_seeds[_])
-            t = task(
-                input_data_size = random.normalvariate((min_input_data_size + max_input_data_size)/2, (max_input_data_size - min_input_data_size)/6),
-                cqu_cycles = random.normalvariate((min_cqu_cycles + max_cqu_cycles)/2, (max_cqu_cycles - min_cqu_cycles)/6),
-                deadline = random.normalvariate((min_deadline + max_deadline)/2, (max_deadline - min_deadline)/6),
-            )
-            tasks.append(t)
-        return tasks
+        raise ValueError("Distribution not supported")
     else:
         raise ValueError("Distribution not supported")
     

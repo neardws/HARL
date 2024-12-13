@@ -25,7 +25,7 @@ class LCQueue(baseQueue):
         for task, index in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(self._client_vehicle_index)]):
             task_index = task["task_index"]
             task_size = tasks[task_index].get_input_data_size()
-            task_arrival_rate = client_vehicle.get_task_arrival_rate_by_task_id(task_index)
+            task_arrival_rate = client_vehicle.get_task_arrival_rate_by_task_index(task_index)
             input += task_size * task_arrival_rate
         return input
     

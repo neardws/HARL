@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import random
 import numpy as np
+from objects.task_object import task
 from objects.mobility_object import mobility
 from typing import Optional
 
@@ -111,20 +112,32 @@ class vehicle(object):
         # 生成任务到达率, 对每一个task_id生成一个到达率, 根据最大和最小到达率
         return [random.uniform(self._min_task_arrival_rate, self._max_task_arrival_rate) for _ in range(self._task_ids_num)]
     
-    def get_task_arrival_rate_by_task_id(self, task_id: int) -> float:
-        task_id_index = self._task_ids.index(task_id)
+    def get_task_arrival_rate_by_task_index(self, task_inedx: int) -> float:
+        task_id_index = self._task_ids.index(task_inedx)
         return self._task_arrival_rate[task_id_index]
     
-    def generate_task(self) -> List[Tuple]:
+    def generate_task(self, tasks) -> List[Tuple]:  # tasks is the result of generate_task_set function in object_generation.py
         # 根据不同task_id的到达率生成任务, 需要服从泊松分布 
-        tasks = [] 
+        retrun_tasks = []
         for i in range(self._task_ids_num):
+            min_task_input_data_size = tasks[self._task_ids[i]]["min_input_data_size"]
+            max_task_input_data_size = tasks[self._task_ids[i]]["max_input_data_size"]
+            task_cpu_cycles = tasks[self._task_ids[i]]["cqu_cycles"]
             task_arrival_times = np.random.poisson(self._task_arrival_rate[i], self._time_slot_num)
+            task_input_date_sizes = np.random.uniform(min_task_input_data_size, max_task_input_data_size, len(task_arrival_times))
             for j in range(self._time_slot_num):
                 if task_arrival_times[j] > 0:
                     for _ in range(task_arrival_times[j]):
-                        tasks.append((j, self._task_ids[i]))
-        return tasks
+                        t = task(
+                            input_data_size=task_input_date_sizes[j],
+                            cpu_cycles=task_cpu_cycles,
+                        )
+                        retrun_tasks.append((j, self._task_ids[i], t))
+        return retrun_tasks
+    
+    def get_average_task_data_size_by_task_index(self, task_index: int) -> float:
+        return np.mean([task[2].get_input_data_size() for task in self._tasks if task[1] == task_index])
+    
     
     def __str__(
         self, 

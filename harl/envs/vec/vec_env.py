@@ -234,6 +234,15 @@ class VECEnv:
             path_loss_exponent=self._env_profile.get_path_loss_exponent(),
         )
         
+        self._lc_queue_backlogs = np.zeros((self._client_vehicle_num, ))
+        self._v2v_queue_backlogs = np.zeros((self._server_vehicle_num, ))
+        self._vc_queue_backlogs = np.zeros((self._server_vehicle_num, ))
+        self._v2i_queue_backlogs = np.zeros((self._edge_node_number, ))
+        self._i2i_queue_backlogs = np.zeros((self._edge_node_number, ))
+        self._ec_queue_backlogs = np.zeros((self._edge_node_number, ))
+        self._i2c_queue_backlogs = np.zeros((1, ))
+        self._cc_queue_backlogs = np.zeros((1, ))
+        
 
     def step(self, actions):
         pass

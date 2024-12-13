@@ -47,7 +47,7 @@ class V2IQueue(baseQueue):
                             task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Cloud":
                             task_id = tasks_of_vehicle_i[j][1]
                             task_size = self._tasks[task_id].get_input_data_size()
-                            task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_id(task_id)
+                            task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_index(task_id)
                             input += task_size * task_arrival_rate
         return input
     
