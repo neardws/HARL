@@ -36,6 +36,16 @@ class PettingZooMPEEnv:
         self.share_observation_space = self.repeat(self.env.state_space)
         self.observation_space = self.unwrap(self.env.observation_spaces)
         self.action_space = self.unwrap(self.env.action_spaces)
+        
+        print("*"*50)
+        print("share_observation_space", self.share_observation_space)
+        print("observation_space", self.observation_space)
+        print("action_space", self.action_space)
+        print("n_agents", self.n_agents)
+        # share_observation_space [Box(-inf, inf, (54,), float32), Box(-inf, inf, (54,), float32), Box(-inf, inf, (54,), float32)]
+        # observation_space [Box(-inf, inf, (18,), float32), Box(-inf, inf, (18,), float32), Box(-inf, inf, (18,), float32)]
+        # action_space [Box(0.0, 1.0, (5,), float32), Box(0.0, 1.0, (5,), float32), Box(0.0, 1.0, (5,), float32)]
+        print("*"*50)
         self._seed = 0
 
     def step(self, actions):
@@ -46,6 +56,7 @@ class PettingZooMPEEnv:
             obs, rew, term, trunc, info = self.env.step(self.wrap(actions.flatten()))
         else:
             obs, rew, term, trunc, info = self.env.step(self.wrap(actions))
+        
         self.cur_step += 1
         if self.cur_step == self.max_cycles:
             trunc = {agent: True for agent in self.agents}
@@ -101,7 +112,7 @@ class PettingZooMPEEnv:
             d[agent] = l[i]
         return d
 
-    def unwrap(self, d):
+    def unwrap(self, d):        # Transform dict to list
         l = []
         for agent in self.agents:
             l.append(d[agent])

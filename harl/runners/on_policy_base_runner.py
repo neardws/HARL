@@ -93,8 +93,8 @@ class OnPolicyBaseRunner:
         print("observation_space: ", self.envs.observation_space)
         print("action_space: ", self.envs.action_space)
 
-        # actor
-        if self.share_param:
+        # actor     
+        if self.share_param:    # is related with the heterogeneity of agents
             self.actor = []
             agent = ALGO_REGISTRY[args["algo"]](
                 {**algo_args["model"], **algo_args["algo"]},
@@ -175,7 +175,8 @@ class OnPolicyBaseRunner:
             return
         print("start running")
         self.warmup()
-
+        
+        # the number of episodes to train
         episodes = (
             int(self.algo_args["train"]["num_env_steps"])
             // self.algo_args["train"]["episode_length"]
