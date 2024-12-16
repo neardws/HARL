@@ -8,7 +8,7 @@ from objects.cloud_server_object import cloud_server
 from utilities.vehicular_trajectories_processing import TrajectoriesProcessing
 from utilities.wired_bandwidth import get_wired_bandwidth_between_edge_nodes_and_the_cloud
 
-# TODO the task set is changed
+# TODO @llf-cpu the task set is changed
 def generate_task_set(
     task_num: int,
     task_seeds: list[int],

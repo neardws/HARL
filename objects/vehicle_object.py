@@ -14,7 +14,7 @@ class vehicle(object):
         available_computing_capability: available computing capability
         transmission_power: transmission power
     '''
-    # TODO: update the generation of vehicles in utilities/object_generation.py
+    # TODO: @llf-cpu update the generation of vehicles in utilities/object_generation.py
     def __init__(
         self,
         random_seed: int,

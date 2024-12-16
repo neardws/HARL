@@ -47,7 +47,7 @@ class V2VQueue(baseQueue):
                         vehicles_under_V2V_communication_range[i][self._server_vehicle_index] == 1:
                         task_index = tasks_of_vehicle_i[j][1]
                         task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
-                        # task_size = self._tasks[task_id].get_input_data_size() # TODO: task size is belong to the vehicle
+                        # task_size = self._tasks[task_id].get_input_data_size() # TODO: @llf-cpu task size is belong to the vehicle
                         task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_index(task_index)
                         input += task_size * task_arrival_rate
         return input
