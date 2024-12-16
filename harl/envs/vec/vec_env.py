@@ -383,9 +383,73 @@ class VECEnv:
                 
         return action_space
     
-    # TODO Define the below functions
     def generate_observation_space(self):
-        pass
+        if self.n_agents != self._maximum_client_vehicle_number * 2 + self._edge_node_number + 1:
+            raise ValueError("The number of agents is not correct.")
+        
+        observation_space = []
+        
+        for i in range(self.n_agents):
+            if i < self._maximum_client_vehicle_number:
+                # the observation space of the client vehicle
+                # conisits of task information (data size, CQU cycles)
+                # the queue backlog of the lc_queue
+                # the V2V connection based on the V2V distance
+                # the queue backlog of the V2V and VC queue of all server clients
+                # the V2I connection based on the V2I distance
+                # the queue backlog of the V2I, I2I, EC queue of all edge nodes
+                # the queue backlog of the I2C and CC queue of the cloud
+                client_vehicle_observation = \
+                    2 * self._maximum_task_generation_number + \
+                    1 + \
+                    self._maximum_server_vehicle_number + \
+                    2 * self._maximum_server_vehicle_number + \
+                    self._edge_node_number + \
+                    3 * self._edge_node_number + \
+                    2
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(client_vehicle_observation,), dtype=np.float32))
+            elif i < self._maximum_client_vehicle_number * 2:
+                # the observation space of the client vehcile when doing the transmission power allocation and computation resource allocation
+                # consists of task information (data size, CQU cycles)
+                # the queue backlog of the lc_queue
+                # the V2V connection based on the V2V distance 
+                # the queue backlog of the V2V queue of all server clients
+                # the V2I connection based on the V2I distance
+                # the queue backlog of the V2I queue of all edge nodes
+                client_vehicle_observation_2 = \
+                    2 * self._maximum_task_offloaded_at_client_vehicle_number + \
+                    1 + \
+                    self._maximum_server_vehicle_number + \
+                    self._maximum_server_vehicle_number + \
+                    self._edge_node_number + \
+                    self._edge_node_number
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(client_vehicle_observation_2, ), dtype=np.float32))
+            elif i < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number:
+                # the observation space of the server vehicle
+                # consists of the task information (data size, CQU cycles)
+                # the queue backlog of the VC queue
+                server_vehicle_observation = \
+                    2 * self._maximum_task_offloaded_at_server_vehicle_number + \
+                    1
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(server_vehicle_observation, ), dtype=np.float32))
+            
+            elif i < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number + self._edge_node_number:
+                # the observation space of the edge node
+                # consists of the task information (data size, CQU cycles)
+                # the queue backlog of the EC queue
+                edge_node_observation = \
+                    2 * self._maximum_task_offloaded_at_edge_node_number + \
+                    1
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(edge_node_observation, ), dtype=np.float32))
+            else:
+                # the observation space of the cloud
+                # consists of the task information (data size, CQU cycles)
+                # the queue backlog of the CC queue
+                cloud_observation = \
+                    2 * self._maximum_task_offloaded_at_cloud_number + \
+                    1
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(cloud_observation, ), dtype=np.float32))
+        return observation_space
     
     def generate_share_observation_space(self):
         pass
