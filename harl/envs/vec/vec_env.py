@@ -26,6 +26,9 @@ from lyapunov_optimization.virtual_queues.local_computing_resource_queue import 
 from lyapunov_optimization.virtual_queues.vehicle_computing_resource_queue import vc_ressource_queue
 from lyapunov_optimization.virtual_queues.edge_computing_resource_queue import ec_ressource_queue
 from lyapunov_optimization.virtual_queues.cloud_compjuting_resource_queue import cc_ressource_queue
+from lyapunov_optimization.lyapunov_drift_plus_penalty.cost import compute_lc_computing_cost, compute_vc_computing_cost, compute_ec_computing_cost, compute_cc_computing_cost, compute_v2v_transmission_cost, compute_v2i_transmission_cost, compute_i2i_transmission_cost, compute_i2c_transmission_cost, compute_total_cost
+from lyapunov_optimization.lyapunov_drift_plus_penalty.objective import compute_phi_t
+
 
 class VECEnv:
     def __init__(self, args):
@@ -99,6 +102,8 @@ class VECEnv:
         self.share_observation_space = self.repeat(self.state_space)
         self.observation_space = self.generate_observation_space()
         self.action_space = self.generate_action_space()
+        
+        self._penalty_weight = ...
         
         self.value_normalizer = ValueNorm(1, device=self.device)
         
@@ -406,14 +411,128 @@ class VECEnv:
     
     def compute_reward(
         self,
-        task_offloading_actions: Dict,
         transmission_power_allocation_actions: Dict,
         computation_resource_allocation_actions: Dict,
     ):
-        # TODO implement the below method
-        pass
+        total_cost = self.compute_total_cost(
+            transmission_power_allocation_actions=transmission_power_allocation_actions,
+            computation_resource_allocation_actions=computation_resource_allocation_actions,
+        )
+        # TODO add the task generation number
+        phi_t = compute_phi_t(
+            now=self.cur_step,
+            task_generation_number=self._task_generation_number,
+            delay_queues=self._delay_queues,
+            client_vehicle_number=self._client_vehicle_num,
+            lc_queues=self._local_computing_resource_queues,
+            server_vehicle_number=self._server_vehicle_num,
+            vc_queues=self._vehicle_computing_resource_queues,
+            edge_node_number=self._edge_node_number,
+            ec_queues=self._edge_computing_resource_queues,
+            cc_queue=self._cloud_computing_resource_queue,
+        )
+        return - self._penalty_weight * total_cost - phi_t
     
+    def compute_total_cost(
+        self,
+        transmission_power_allocation_actions: Dict,
+        computation_resource_allocation_actions: Dict,
+    ) -> float:  
+        # init the costs
+        v2v_transmission_costs = np.zeros((self._client_vehicle_num, ))
+        v2i_transmission_costs = np.zeros((self._client_vehicle_num, ))
+        lc_computing_costs = np.zeros((self._client_vehicle_num, ))
+        
+        vc_computing_costs = np.zeros((self._server_vehicle_num, ))
+        
+        ec_computing_costs = np.zeros((self._edge_node_number, ))
+        i2i_transmission_costs = np.zeros((self._edge_node_number, ))
+        i2c_transmission_costs = np.zeros((self._edge_node_number, ))
+        
+        cc_computing_cost = 0.0
+        
+        # compute the costs of the client vehicles
+        for client_vehicle_index in range(self._client_vehicle_num):
+            v2v_transmission_costs[client_vehicle_index] = compute_v2v_transmission_cost(
+                client_vehicle_index=client_vehicle_index,
+                client_vehicle_transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power(),
+                transmission_power_allocation_actions=transmission_power_allocation_actions,
+            )
+            v2i_transmission_costs[client_vehicle_index] = compute_v2i_transmission_cost(
+                client_vehicle_index=client_vehicle_index,
+                client_vehicle_transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power(),
+                transmission_power_allocation_actions=transmission_power_allocation_actions,
+            )
+            lc_computing_costs[client_vehicle_index] = compute_lc_computing_cost(
+                client_vehicle_index=client_vehicle_index,
+                client_vehicle_computing_capability=self._client_vehicles[client_vehicle_index].get_computing_capability(),
+                task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+            )
+        
+        # compute the costs of the server vehicles
+        for server_vehicle_index in range(self._server_vehicle_num):
+            vc_computing_costs[server_vehicle_index] = compute_vc_computing_cost(
+                server_vehicle_index=server_vehicle_index,
+                server_vehicle_computing_capability=self._server_vehicles[server_vehicle_index].get_computing_capability(),
+                task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+            )
+            
+        # compute the costs of the edge nodes
+        for edge_node_index in range(self._edge_node_number):
+            ec_computing_costs[edge_node_index] = compute_ec_computing_cost(
+                edge_node_index=edge_node_index,
+                edge_node_computing_capability=self._edge_nodes[edge_node_index].get_computing_capability(),
+                task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+            )
+            # TODO update the tasks 
+            i2i_transmission_costs[edge_node_index] = compute_i2i_transmission_cost(
+                edge_node_index=edge_node_index,
+                distance_matrix_between_client_vehicles_and_edge_nodes=self._distance_matrix_between_client_vehicles_and_edge_nodes,
+                task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
+                client_vehicles=self._client_vehicles,
+                tasks=self._tasks,
+                maximum_client_vehicle_number=self._maximum_client_vehicle_number,
+                maximum_task_generation_number=self._maximum_task_generation_number,
+                now=self.cur_step,
+            )
+            # TODO update the tasks 
+            i2c_transmission_costs[edge_node_index] = compute_i2c_transmission_cost(
+                edge_node_index=edge_node_index,
+                distance_matrix_between_edge_nodes_and_the_cloud=self._distance_matrix_between_edge_nodes_and_the_cloud,
+                task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
+                client_vehicles=self._client_vehicles,
+                tasks=self._tasks,
+                maximum_client_vehicle_number=self._maximum_client_vehicle_number,
+                maximum_task_generation_number=self._maximum_task_generation_number,
+                now=self.cur_step,
+            )
+            
+        # compute the costs of the cloud
+        cc_computing_cost = compute_cc_computing_cost(
+            cloud_computing_capability=self._cloud.get_computing_capability(),
+            task_offloaded_at_cloud=self._task_offloaded_at_cloud,
+            computation_resource_allocation_actions=computation_resource_allocation_actions,
+        )
+        
+        total_cost = compute_total_cost(
+            v2v_transmission_costs=v2v_transmission_costs,
+            v2i_transmission_costs=v2i_transmission_costs,
+            lc_computing_costs=lc_computing_costs,
+            server_vehicle_number=self._server_vehicle_num,
+            vc_computing_costs=vc_computing_costs,
+            edge_node_number=self._edge_node_number,
+            ec_computing_costs=ec_computing_costs,
+            i2i_transmission_costs=i2i_transmission_costs,
+            i2c_transmission_costs=i2c_transmission_costs,
+            cc_computing_cost=cc_computing_cost,
+        )
+        
+        return total_cost
     
+    # TODO need to be normalized
     def obtain_observation(self):
         observations = []
 

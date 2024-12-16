@@ -135,7 +135,7 @@ def compute_total_cost(
     ec_computing_costs : List[float],
     i2i_transmission_costs : List[float],
     i2c_transmission_costs : List[float],
-    cc_computing_costs : List[float],
+    cc_computing_cost : float,
 ):
     total_cost = 0.0
     for i in range(client_vehicle_number):
@@ -144,5 +144,5 @@ def compute_total_cost(
         total_cost += vc_computing_costs[i]
     for i in range(edge_node_number):
         total_cost += ec_computing_costs[i] + i2i_transmission_costs[i] + i2c_transmission_costs[i]
-    total_cost += cc_computing_costs[0]
+    total_cost += cc_computing_cost
     return total_cost
