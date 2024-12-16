@@ -122,3 +122,27 @@ def compute_cc_computing_cost(
             computation_resource_allocation_actions["cloud"][index]
         cost += allocated_cycles
     return cost
+
+# TODO: need to be normalized
+def compute_total_cost(
+    client_vehicle_number: int,
+    v2v_transmission_costs : List[float],
+    v2i_transmission_costs : List[float],
+    lc_computing_costs : List[float],
+    server_vehicle_number: int,
+    vc_computing_costs : List[float],
+    edge_node_number: int,
+    ec_computing_costs : List[float],
+    i2i_transmission_costs : List[float],
+    i2c_transmission_costs : List[float],
+    cc_computing_costs : List[float],
+):
+    total_cost = 0.0
+    for i in range(client_vehicle_number):
+        total_cost += v2v_transmission_costs[i] + v2i_transmission_costs[i] + lc_computing_costs[i]
+    for i in range(server_vehicle_number):
+        total_cost += vc_computing_costs[i]
+    for i in range(edge_node_number):
+        total_cost += ec_computing_costs[i] + i2i_transmission_costs[i] + i2c_transmission_costs[i]
+    total_cost += cc_computing_costs[0]
+    return total_cost

@@ -301,39 +301,6 @@ class VECEnv:
                 computation_resource_allocation_actions["cloud"] = computation_resource_allocation_normalized
         return task_offloading_actions, transmission_power_allocation_actions, computation_resource_allocation_actions
     
-    def generate_action_space(self):
-        if self._n_agents != self._maximum_client_vehicle_number * 2 + self._edge_node_number + 1:
-            raise ValueError("The number of agents is not correct.")
-        
-        task_offloading_number = 1 + self._maximum_server_vehicle_number + self._maximum_server_vehicle_number + self._edge_node_number + 1
-        
-        action_space = []
-        for i in range(self._n_agents):
-            if i < self._maximum_client_vehicle_number:
-                # task offloading decision
-                action_space.append(gym.spaces.multi_discrete.MultiDiscrete([task_offloading_number] * self._maximum_task_generation_number))
-            elif i < self._maximum_client_vehicle_number * 2:
-                # transmission power allocation and computation resource allocation
-                # need to be normalized, the sum of the elements in the first maximum_task_offloaded_at_client_vehicle_number elements should be 1
-                # wihch means the computation resource allocation cannot exceed the capacity of the client vehicle
-                # the sum of the elements in the last two elements should be 1
-                # which means the sum of the transmission power allocation should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_client_vehicle_number + 2,), dtype=np.float32))
-            elif i < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_server_vehicle_number,), dtype=np.float32))
-            elif i < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number + self._edge_node_number:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_edge_node_number,), dtype=np.float32))
-            else:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_cloud_number,), dtype=np.float32))
-                
-        return action_space
-    
         
     def obtain_tasks_offloading_conditions(
         self, 
@@ -382,6 +349,41 @@ class VECEnv:
                                 
         return task_offloaded_at_client_vehicles, task_offloaded_at_server_vehicles, task_offloaded_at_edge_nodes, task_offloaded_at_cloud
     
+    
+    def generate_action_space(self):
+        if self.n_agents != self._maximum_client_vehicle_number * 2 + self._edge_node_number + 1:
+            raise ValueError("The number of agents is not correct.")
+        
+        task_offloading_number = 1 + self._maximum_server_vehicle_number + self._maximum_server_vehicle_number + self._edge_node_number + 1
+        
+        action_space = []
+        for i in range(self.n_agents):
+            if i < self._maximum_client_vehicle_number:
+                # task offloading decision
+                action_space.append(gym.spaces.multi_discrete.MultiDiscrete([task_offloading_number] * self._maximum_task_generation_number))
+            elif i < self._maximum_client_vehicle_number * 2:
+                # transmission power allocation and computation resource allocation
+                # need to be normalized, the sum of the elements in the first maximum_task_offloaded_at_client_vehicle_number elements should be 1
+                # wihch means the computation resource allocation cannot exceed the capacity of the client vehicle
+                # the sum of the elements in the last two elements should be 1
+                # which means the sum of the transmission power allocation should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_client_vehicle_number + 2,), dtype=np.float32))
+            elif i < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number:
+                # computation resource allocation
+                # need to be normalized, the sum of the elements should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_server_vehicle_number,), dtype=np.float32))
+            elif i < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number + self._edge_node_number:
+                # computation resource allocation
+                # need to be normalized, the sum of the elements should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_edge_node_number,), dtype=np.float32))
+            else:
+                # computation resource allocation
+                # need to be normalized, the sum of the elements should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_cloud_number,), dtype=np.float32))
+                
+        return action_space
+    
+    # TODO Define the below functions
     def generate_observation_space(self):
         pass
     
@@ -389,9 +391,6 @@ class VECEnv:
         pass
     
     def generate_state_space(self):
-        pass
-    
-    def generate_reward_space(self):
         pass
     
     def generate_avail_actions(self):
