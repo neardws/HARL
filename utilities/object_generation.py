@@ -1,6 +1,5 @@
 import random
-from typing import List
-from objects.task_object import task
+from typing import List, Dict
 from objects.mobility_object import mobility
 from objects.vehicle_object import vehicle
 from objects.edge_node_object import edge_node
@@ -8,7 +7,6 @@ from objects.cloud_server_object import cloud_server
 from utilities.vehicular_trajectories_processing import TrajectoriesProcessing
 from utilities.wired_bandwidth import get_wired_bandwidth_between_edge_nodes_and_the_cloud
 
-# TODO @llf-cpu the task set is changed
 def generate_task_set(
     task_num: int,
     task_seeds: list[int],
@@ -17,7 +15,7 @@ def generate_task_set(
     max_input_data_size: float,     # in MB
     min_cqu_cycles: float,          # cycles/bit
     max_cqu_cycles: float,          # cycles/bit
-):
+) -> List[Dict]:
     tasks = []
     if distribution == "uniform":
         for _ in range(task_num):
@@ -63,6 +61,7 @@ def generate_vehicles(
     min_task_arrival_rate: float,           # tasks/s
     max_task_arrival_rate: float,           # tasks/s
     task_num: int,
+    task_ids_rate: float,
     distribution: str,
 ) -> tuple[float, float, float, float, List[vehicle]]:
 
@@ -85,15 +84,22 @@ def generate_vehicles(
             random.seed(vehicle_seeds[_])
             vehicles.append(
                 vehicle(
-                    mobilities=mobilities_list[_],
                     random_seed=vehicle_seeds[_],
+                    mobilities=mobilities_list[_],
+                    
                     computing_capability=random.uniform(min_computing_capability, max_computing_capability),
                     storage_capability=random.uniform(min_storage_capability, max_storage_capability),
-                    transmission_power=random.uniform(min_transmission_power, max_transmission_power),
                     time_slot_num=slot_length,
+                    
+                    transmission_power=random.uniform(min_transmission_power, max_transmission_power),
                     communication_range=communication_range,
+                    
+                    min_task_arrival_rate=min_task_arrival_rate,
+                    max_task_arrival_rate=max_task_arrival_rate,
+                    
                     task_arrival_rate=random.uniform(min_task_arrival_rate, max_task_arrival_rate),
                     task_num=task_num,
+                    task_ids_rate=task_ids_rate,
                 )
             )
         return min_map_x, max_map_x, min_map_y, max_map_y, vehicles

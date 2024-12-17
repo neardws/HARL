@@ -14,7 +14,6 @@ class vehicle(object):
         available_computing_capability: available computing capability
         transmission_power: transmission power
     '''
-    # TODO: @llf-cpu update the generation of vehicles in utilities/object_generation.py
     def __init__(
         self,
         random_seed: int,
@@ -42,11 +41,11 @@ class vehicle(object):
         self._task_num : int = task_num
         self._random_seed : int = random_seed
         random.seed(self._random_seed)
-        self._tasks : List[Tuple] = self.generate_task()
         self._task_ids_rate = task_ids_rate
         self._task_ids = self._generate_task_ids(rate=self._task_ids_rate)
         self._task_ids_num = len(self._task_ids)
         self._task_arrival_rate = self.generate_task_arrival_rates()
+        self._tasks : List[Tuple] = self.generate_task()
     
     def get_time_slot_num(self) -> int:
         return self._time_slot_num

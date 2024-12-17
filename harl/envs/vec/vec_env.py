@@ -43,8 +43,6 @@ class VECEnv:
         self._max_input_data_size_of_tasks: float = self.args["max_input_data_size_of_tasks"]
         self._min_cqu_cycles_of_tasks: float = self.args["min_cqu_cycles_of_tasks"]
         self._max_cqu_cycles_of_tasks: float = self.args["max_cqu_cycles_of_tasks"]
-        self._min_deadline_of_tasks: float = self.args["min_deadline_of_tasks"]
-        self._max_deadline_of_tasks: float = self.args["max_deadline_of_tasks"]
         
         self._vehicle_num: int = self.args["vehicle_num"]
         self._vehicle_mobility_file_name_key: str = self.args["vehicle_mobility_file_name_key"]
@@ -63,6 +61,7 @@ class VECEnv:
         self._max_task_arrival_rate_of_vehicles: float = self.args["max_task_arrival_rate_of_vehicles"]
         self._vehicle_distribution: str = self.args["vehicle_distribution"]
         self._maximum_task_generation_number_of_vehicles : int = self.args["maximum_task_generation_number_of_vehicles"] 
+        self._task_ids_rate: float = self.args["task_ids_rate"]
         
         self._edge_num: int = self.args["edge_num"]
         self._min_computing_capability_of_edges: float = self.args["min_computing_capability_of_edges"]
@@ -113,7 +112,7 @@ class VECEnv:
         self._task_offloaded_at_edge_nodes = {}
         self._task_offloaded_at_cloud = {}
         
-        self._tasks : List[task] = generate_task_set(
+        self._tasks : List[Dict] = generate_task_set(
             task_num=self._task_num,
             task_seeds=self._task_seeds,
             distribution=self._task_distribution,
@@ -121,8 +120,6 @@ class VECEnv:
             max_input_data_size=self._max_input_data_size_of_tasks,
             min_cqu_cycles=self._min_cqu_cycles_of_tasks,
             max_cqu_cycles=self._max_cqu_cycles_of_tasks,
-            min_deadline=self._min_deadline_of_tasks,
-            max_deadline=self._max_deadline_of_tasks,
         )
         
         min_map_x, max_map_x, min_map_y, max_map_y, self._vehicles = generate_vehicles(
@@ -144,7 +141,12 @@ class VECEnv:
             min_task_arrival_rate=self._min_task_arrival_rate_of_vehicles,
             max_task_arrival_rate=self._max_task_arrival_rate_of_vehicles,
             task_num=self._task_num,
+            task_ids_rate=self._task_ids_rate,
             distribution=self._vehicle_distribution,
+        )
+        
+        self._maximum_task_data_size, self._maximum_task_required_cycles = self.obtain_maximum_task_data_size_and_required_cycles_of_vehicles(
+            vehicles=self._vehicles,
         )
         
         self._edge_nodes : List[edge_node] = generate_edge_nodes(
@@ -330,6 +332,16 @@ class VECEnv:
         self._i2c_queue_backlogs = np.zeros((self._slot_length, ))
         self._cc_queue_backlogs = np.zeros((self._slot_length, ))
         
+        # init the maximum queue length
+        self._maximum_lc_queue_length = np.zeros((self._client_vehicle_num, ))
+        self._maximum_v2v_queue_length = np.zeros((self._server_vehicle_num, ))
+        self._maximum_vc_queue_length = np.zeros((self._server_vehicle_num, ))
+        self._maximum_v2i_queue_length = np.zeros((self._edge_num, ))
+        self._maximum_i2i_queue_length = np.zeros((self._edge_num, ))
+        self._maximum_ec_queue_length = np.zeros((self._edge_num, ))
+        self._maximum_i2c_queue_length = 0.0
+        self._maximum_cc_queue_length = 0.0
+        
         # init the virtual queues
         self._delay_queues = [delayQueue(
             time_slot_num=self._slot_length,
@@ -365,6 +377,18 @@ class VECEnv:
             name="cc_ressource_queue",
             cloud_computing_capability=self._cloud.get_computing_capability(),
         ) 
+        
+    def obtain_maximum_task_data_size_and_required_cycles_of_vehicles(self, vehicles: List[vehicle]):
+        maximum_task_data_size = 0.0
+        maximum_task_required_cycles = 0.0
+        for vehicle in vehicles:
+            tasks = vehicle.get_tasks()
+            for task in tasks:
+                if task[2].get_input_data_size() > maximum_task_data_size:
+                    maximum_task_data_size = task.get_input_data_size()
+                if task[2].get_required_cycles() > maximum_task_required_cycles:
+                    maximum_task_required_cycles = task.get_required_cycles()
+        return maximum_task_data_size, maximum_task_required_cycles
 
     def step(self, actions):
         # transform the actions into the task offloading actions, transmission power allocation actions, computation resource allocation actions
@@ -577,6 +601,8 @@ class VECEnv:
                     now=self.cur_step,
                 )
                 self._lc_queue_backlogs[client_vehicle_index][self.cur_step + 1] = self._lc_queues[client_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+                if self._lc_queues[client_vehicle_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_lc_queue_length[client_vehicle_index]:
+                    self._maximum_lc_queue_length[client_vehicle_index] = self._lc_queues[client_vehicle_index].get_queue(time_slot=self.cur_step + 1)
                 
             # update the v2v and vc queues
             for server_vehicle_index in range(self._server_vehicle_num):
@@ -597,6 +623,8 @@ class VECEnv:
                     now=self.cur_step,
                 )
                 self._v2v_queue_backlogs[server_vehicle_index][self.cur_step + 1] = self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+                if self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_v2v_queue_length[server_vehicle_index]:
+                    self._maximum_v2v_queue_length[server_vehicle_index] = self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
                 
                 vc_queue_input = self._vc_queues[server_vehicle_index].compute_input(
                     v2v_transmission_output=v2v_queue_output,
@@ -612,7 +640,9 @@ class VECEnv:
                     now=self.cur_step,
                 )
                 self._vc_queue_backlogs[server_vehicle_index][self.cur_step + 1] = self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
-
+                if self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_vc_queue_length[server_vehicle_index]:
+                    self._maximum_vc_queue_length[server_vehicle_index] = self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+                        
             # update the v2i, i2i and ec queues
             for edge_node_index in range(self._edge_num):
                 v2i_queue_input = self._v2i_queues[edge_node_index].compute_input(
@@ -632,6 +662,8 @@ class VECEnv:
                     now=self.cur_step,
                 )
                 self._v2i_queue_backlogs[edge_node_index][self.cur_step + 1] = self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                if self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_v2i_queue_length[edge_node_index]:
+                    self._maximum_v2i_queue_length[edge_node_index] = self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 
                 i2i_queue_input = self._i2i_queues[edge_node_index].compute_input(
                     task_offloading_actions=task_offloading_actions,
@@ -651,6 +683,8 @@ class VECEnv:
                     now=self.cur_step,
                 )
                 self._i2i_queue_backlogs[edge_node_index][self.cur_step + 1] = self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                if self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_i2i_queue_length[edge_node_index]:
+                    self._maximum_i2i_queue_length[edge_node_index] = self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 
                 ec_queue_input = self._ec_queues[edge_node_index].compute_input(
                     v2i_transmission_output=v2i_queue_output,
@@ -667,6 +701,8 @@ class VECEnv:
                     now=self.cur_step,
                 )
                 self._ec_queue_backlogs[edge_node_index][self.cur_step + 1] = self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                if self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_ec_queue_length[edge_node_index]:
+                    self._maximum_ec_queue_length[edge_node_index] = self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 
             # update the i2c and cc queues
             i2c_queue_input = self._i2c_quque.compute_input(
@@ -687,7 +723,9 @@ class VECEnv:
                 now=self.cur_step,
             )
             self._i2c_queue_backlogs[self.cur_step + 1] = self._i2c_quque.get_queue(time_slot=self.cur_step + 1)
-                        
+            if self._i2c_quque.get_queue(time_slot=self.cur_step + 1) > self._maximum_i2c_queue_length:
+                self._maximum_i2c_queue_length = self._i2c_quque.get_queue(time_slot=self.cur_step + 1)
+                 
             cc_queue_input = self._cc_queue.compute_input(
                 i2c_transmission_output=i2c_queue_output,
             )
@@ -702,7 +740,9 @@ class VECEnv:
                 now=self.cur_step,
             )
             self._cc_queue_backlogs[self.cur_step + 1] = self._cc_queue.get_queue(time_slot=self.cur_step + 1)
-
+            if self._cc_queue.get_queue(time_slot=self.cur_step + 1) > self._maximum_cc_queue_length:
+                self._maximum_cc_queue_length = self._cc_queue.get_queue(time_slot=self.cur_step + 1)
+            
     def update_virtual_queues(
         self,
         task_offloading_actions: Dict,
@@ -863,25 +903,21 @@ class VECEnv:
                 task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
                 computation_resource_allocation_actions=computation_resource_allocation_actions,
             )
-            # TODO update the tasks 
             i2i_transmission_costs[edge_node_index] = compute_i2i_transmission_cost(
                 edge_node_index=edge_node_index,
                 distance_matrix_between_client_vehicles_and_edge_nodes=self._distance_matrix_between_client_vehicles_and_edge_nodes,
                 task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
                 client_vehicles=self._client_vehicles,
-                tasks=self._tasks,
-                maximum_client_vehicle_number=self._client_vehicle_num,
+                client_vehicle_number=self._client_vehicle_num,
                 maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
                 now=self.cur_step,
             )
-            # TODO update the tasks 
             i2c_transmission_costs[edge_node_index] = compute_i2c_transmission_cost(
                 edge_node_index=edge_node_index,
                 distance_matrix_between_edge_nodes_and_the_cloud=self._distance_matrix_between_edge_nodes_and_the_cloud,
                 task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
                 client_vehicles=self._client_vehicles,
-                tasks=self._tasks,
-                maximum_client_vehicle_number=self._client_vehicle_num,
+                client_vehicle_number=self._client_vehicle_num,
                 maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
                 now=self.cur_step,
             )
@@ -908,7 +944,6 @@ class VECEnv:
         
         return total_cost
     
-    # TODO need to be normalized
     def obtain_observation(self):
         observations = []
 
@@ -924,9 +959,9 @@ class VECEnv:
                 for task in range(min_num):
                     task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
                     cqu_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
-                    observation[index] = task_data_size
+                    observation[index] = task_data_size / self._maximum_task_data_size
                     index += 1
-                    observation[index] = cqu_cycles
+                    observation[index] = cqu_cycles / self._maximum_task_required_cycles
                     index += 1
                 # 填充剩余的任务信息为零
                 for _ in range(min_num, self._maximum_task_generation_number_of_vehicles):
@@ -937,7 +972,10 @@ class VECEnv:
 
                 # 客户端队列累积
                 lc_backlog = self._lc_queue_backlogs[agent_id][self.cur_step]
-                observation[index] = lc_backlog
+                if self._maximum_lc_queue_length[agent_id] != 0:
+                    observation[index] = lc_backlog / self._maximum_lc_queue_length[agent_id]
+                else:
+                    observation[index] = 1
                 index += 1
 
                 # V2V 连接信息
@@ -949,10 +987,16 @@ class VECEnv:
                 # 服务车辆的队列累积
                 for server in range(self._server_vehicle_num):
                     v2v_backlog = self._v2v_queue_backlogs[server][self.cur_step]
-                    observation[index] = v2v_backlog
+                    if self._maximum_v2v_queue_length[server] != 0:
+                        observation[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
+                    else:
+                        observation[index] = 1
                     index += 1
                     vc_backlog = self._vc_queue_backlogs[server][self.cur_step]
-                    observation[index] = vc_backlog
+                    if self._maximum_vc_queue_length[server] != 0:
+                        observation[index] = vc_backlog / self._maximum_vc_queue_length[server]
+                    else:
+                        observation[index] = 1
                     index += 1
                 
                 # V2I 连接信息
@@ -964,20 +1008,36 @@ class VECEnv:
                 # 边缘节点的队列累积
                 for _ in range(self._edge_num):
                     v2i_backlog = self._v2i_queue_backlogs[edge][self.cur_step]
-                    observation[index] = v2i_backlog
+                    if self._maximum_v2i_queue_length[edge] != 0:
+                        observation[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
+                    else:
+                        observation[index] = 1
                     index += 1
                     i2i_backlog = self._i2i_queue_backlogs[edge][self.cur_step]
-                    observation[index] = i2i_backlog
+                    if self._maximum_i2i_queue_length[edge] != 0:
+                        observation[index] = i2i_backlog / self._maximum_i2i_queue_length[edge]
+                    else:
+                        observation[index] = 1
                     index += 1
                     ec_backlog = self._ec_queue_backlogs[edge][self.cur_step]
-                    observation[index] = ec_backlog
+                    if self._maximum_ec_queue_length[edge] != 0:
+                        observation[index] = ec_backlog / self._maximum_ec_queue_length[edge]
+                    else:
+                        observation[index] = 1
                     index += 1
 
                 # 云的队列累积
                 i2c_backlog = self._i2c_queue_backlogs[0][self.cur_step]
-                observation[index] = i2c_backlog
+                if self._maximum_i2c_queue_length != 0:
+                    observation[index] = i2c_backlog / self._maximum_i2c_queue_length
+                else:
+                    observation[index] = 1
                 index += 1
                 cc_backlog = self._cc_queue_backlogs[0][self.cur_step]
+                if self._maximum_cc_queue_length != 0:
+                    observation[index] = cc_backlog / self._maximum_cc_queue_length
+                else:
+                    observation[index] = 1
                 observation[index] = cc_backlog
                 
                 observations.append(observation)
@@ -990,14 +1050,14 @@ class VECEnv:
                 
                 # 任务信息
                 tasks_offloaded_at_vehicle = self._task_offloaded_at_client_vehicles["client_vehicle_" + str(vehicle_index)]
-                min_mum = min(len(tasks_offloaded_at_vehicle), self._maximum_task_offloaded_at_client_vehicle_number)
+                min_num = min(len(tasks_offloaded_at_vehicle), self._maximum_task_offloaded_at_client_vehicle_number)
 
                 for task in range(min_num):
                     task_data_size = tasks_of_vehicle[task]["task"].get_input_data_size()
                     cqu_cycles = tasks_of_vehicle[task]["task"].get_requested_computing_cycles()
-                    observation[index] = task_data_size
+                    observation[index] = task_data_size / self._maximum_task_data_size
                     index += 1
-                    observation[index] = cqu_cycles
+                    observation[index] = cqu_cycles / self._maximum_task_required_cycles    
                     index += 1
                 # 填充剩余的任务信息为零
                 for _ in range(min_num, self._maximum_task_offloaded_at_client_vehicle_number):
@@ -1008,7 +1068,10 @@ class VECEnv:
 
                 # 客户端队列累积
                 lc_backlog = self._lc_queue_backlogs[agent_id][self.cur_step]
-                observation[index] = lc_backlog
+                if self._maximum_lc_queue_length[agent_id] != 0:
+                    observation[index] = lc_backlog / self._maximum_lc_queue_length[agent_id]
+                else:
+                    observation[index] = 1
                 index += 1
 
                 # V2V 连接信息
@@ -1020,7 +1083,10 @@ class VECEnv:
                 # 服务车辆的队列累积
                 for server in range(self._server_vehicle_num):
                     v2v_backlog = self._v2v_queue_backlogs[server][self.cur_step]
-                    observation[index] = v2v_backlog
+                    if self._maximum_v2v_queue_length[server] != 0:
+                        observation[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
+                    else:
+                        observation[index] = 1
                     index += 1
                 
                 # V2I 连接信息
@@ -1032,7 +1098,10 @@ class VECEnv:
                 # 边缘节点的队列累积
                 for _ in range(self._edge_num):
                     v2i_backlog = self._v2i_queue_backlogs[edge][self.cur_step]
-                    observation[index] = v2i_backlog
+                    if self._maximum_v2i_queue_length[edge] != 0:
+                        observation[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
+                    else:
+                        observation[index] = 1
                     index += 1
 
                 observations.append(observation)
@@ -1049,9 +1118,9 @@ class VECEnv:
                 for task in range(min_num):
                     task_data_size = server_tasks[task]["task"].get_input_data_size()
                     cqu_cycles = server_tasks[task]["task"].get_requested_computing_cycles()
-                    observation[index] = task_data_size
+                    observation[index] = task_data_size / self._maximum_task_data_size
                     index += 1
-                    observation[index] = cqu_cycles
+                    observation[index] = cqu_cycles / self._maximum_task_required_cycles
                     index += 1
                 for _ in range(min_num, self._maximum_task_offloaded_at_server_vehicle_number):
                     observation[index] = 0
@@ -1060,17 +1129,73 @@ class VECEnv:
                     index += 1
 
                 backlog = self._vc_queue_backlogs[agent_id - self._client_vehicle_num * 2][self.cur_step]
-                observation[index] = backlog
+                if self._maximum_vc_queue_length[agent_id - self._client_vehicle_num * 2] != 0:
+                    observation[index] = backlog / self._maximum_vc_queue_length[agent_id - self._client_vehicle_num * 2]
+                else:
+                    observation[index] = 1
                 index += 1
                 
                 observations.append(observation)
 
-            # 处理边缘节点和云的观察，与上述类似
-            # TODO: @llf-cpu
+            # 处理边缘节点和云的观察
+            elif agent_id < self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num:
+                observation = np.zeros(self.observation_space[agent_id].shape)
+                index = 0
+                
+                edge_node_index = agent_id - self._client_vehicle_num * 2 - self._server_vehicle_num
+                
+                edge_tasks = self._task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]
+                min_num = min(len(edge_tasks), self._maximum_task_offloaded_at_edge_node_number)
+                for task in range(min_num):
+                    task_data_size = edge_tasks[task]["task"].get_input_data_size()
+                    cqu_cycles = edge_tasks[task]["task"].get_requested_computing_cycles()
+                    observation[index] = task_data_size / self._maximum_task_data_size
+                    index += 1
+                    observation[index] = cqu_cycles / self._maximum_task_required_cycles
+                    index += 1
+                for _ in range(min_num, self._maximum_task_offloaded_at_edge_node_number):
+                    observation[index] = 0
+                    index += 1
+                    observation[index] = 0
+                    index += 1
+
+                ec_backlog = self._ec_queue_backlogs[edge_node_index][self.cur_step]
+                if self._maximum_ec_queue_length[edge_node_index] != 0:
+                    observation[index] = ec_backlog / self._maximum_ec_queue_length[edge_node_index]
+                else:
+                    observation[index] = 1
+                index += 1
+
+                observations.append(observation)
+
+            else:
+                observation = np.zeros(self.observation_space[agent_id].shape)
+                index = 0
+                
+                cloud_tasks = self._task_offloaded_at_cloud["cloud"]
+                min_num = min(len(cloud_tasks), self._maximum_task_offloaded_at_cloud_number)
+                for task in range(min_num):
+                    task_data_size = cloud_tasks[task]["task"].get_input_data_size()
+                    cqu_cycles = cloud_tasks[task]["task"].get_requested_computing_cycles()
+                    observation[index] = task_data_size / self._maximum_task_data_size
+                    index += 1
+                    observation[index] = cqu_cycles / self._maximum_task_required_cycles
+                    index += 1
+                for _ in range(min_num, self._maximum_task_offloaded_at_cloud_number):
+                    observation[index] = 0
+                    index += 1
+                    observation[index] = 0
+                    index += 1
+                    
+                cc_backlog = self._cc_queue_backlogs[0][self.cur_step]
+                if self._maximum_cc_queue_length != 0:
+                    observation[index] = cc_backlog / self._maximum_cc_queue_length
+                else:
+                    observation[index] = 1               
+                observations.append(observation)
 
         return observations
 
-    # TODO need to be normalized
     def state(self):
         # 初始化一个状态数组，形状为 (state_space_number,)
         state = np.zeros(self.state_space.shape)  # self.state_space 是通过 generate_state_space 生成的
@@ -1084,9 +1209,9 @@ class VECEnv:
             for task in range(min_num):
                 task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
                 cqu_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
-                state[index] = task_data_size
+                state[index] = task_data_size / self._maximum_task_data_size
                 index += 1
-                state[index] = cqu_cycles
+                state[index] = cqu_cycles / self._maximum_task_required_cycles
                 index += 1
             for _ in range(min_num, self._maximum_task_generation_number_of_vehicles):
                 state[index] = 0
@@ -1098,6 +1223,10 @@ class VECEnv:
         for client in range(self._client_vehicle_num):
             lc_backlog = self._lc_queue_backlogs[client][self.cur_step]  # 获取客户端车辆的队列累积
             state[index] = lc_backlog
+            if self._maximum_lc_queue_length[client] != 0:
+                state[index] /= self._maximum_lc_queue_length[client]
+            else:
+                state[index] = 1
             index += 1
 
         # 3. V2V 连接信息
@@ -1110,7 +1239,10 @@ class VECEnv:
         # 4. 服务器车辆的队列累积
         for server in range(self._server_vehicle_num):
             v2v_backlog = self._v2v_queue_backlogs[server][self.cur_step]  # 获取服务器车辆的队列累积
-            state[index] = v2v_backlog
+            if self._maximum_v2v_queue_length[server] != 0:
+                state[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
+            else:
+                state[index] = 1
             index += 1
             vc_backlog = self._vc_queue_backlogs[server][self.cur_step]  # 获取服务器车辆的队列累积
             state[index] = vc_backlog
@@ -1128,19 +1260,34 @@ class VECEnv:
             v2i_backlog = self._v2i_queue_backlogs[edge][self.cur_step]  # 获取边缘节点的队列累积
             i2i_backlog = self._i2i_queue_backlogs[edge][self.cur_step]  # 获取边缘节点的队列累积
             ec_backlog = self._ec_queue_backlogs[edge][self.cur_step]  # 获取边缘节点的队列累积
-            state[index] = v2i_backlog
+            if self._maximum_v2i_queue_length[edge] != 0:
+                state[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
+            else:
+                state[index] = 1
             index += 1
-            state[index] = i2i_backlog
+            if self._maximum_i2i_queue_length[edge] != 0:
+                state[index] = i2i_backlog / self._maximum_i2i_queue_length[edge]
+            else:
+                state[index] = 1
             index += 1
-            state[index] = ec_backlog
+            if self._maximum_ec_queue_length[edge] != 0:
+                state[index] = ec_backlog / self._maximum_ec_queue_length[edge]
+            else:
+                state[index] = 1
             index += 1
 
         # 7. 云的队列累积（I2C 和 CC）
         i2c_backlog = self._i2c_queue_backlogs[0][self.cur_step]  # 获取云的 I2C 队列
-        state[index] = i2c_backlog
+        if self._maximum_i2c_queue_length != 0:
+            state[index] = i2c_backlog / self._maximum_i2c_queue_length
+        else:
+            state[index] = 1
         index += 1
         cc_backlog = self._cc_queue_backlogs[0][self.cur_step]  # 获取云的 CC 队列
-        state[index] = cc_backlog
+        if self._maximum_cc_queue_length != 0:
+            state[index] = cc_backlog / self._maximum_cc_queue_length
+        else:
+            state[index] = 1
         
         return state
 

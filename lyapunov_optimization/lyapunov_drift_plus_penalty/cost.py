@@ -25,13 +25,12 @@ def compute_i2i_transmission_cost(
     distance_matrix_between_edge_nodes: np.ndarray,
     task_offloading_actions: Dict,
     client_vehicles: List[vehicle],
-    tasks: List[task],
-    maximum_client_vehicle_number: int,
+    client_vehicle_number: int,
     maximum_task_generation_number: int,
     now: int,
 ):
     cost = 0.0
-    for i in range(maximum_client_vehicle_number):
+    for i in range(client_vehicle_number):
         if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index] == 1:
             tasks_of_vehicle_i = client_vehicles.get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), maximum_task_generation_number)
@@ -40,8 +39,7 @@ def compute_i2i_transmission_cost(
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Edge Node") and \
                         int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1]) != edge_node_index:
                         other_edge_node_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
-                        task_id = tasks_of_vehicle_i[j][1]
-                        task_size = tasks[task_id].get_input_data_size()
+                        task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
                         distance = distance_matrix_between_edge_nodes[edge_node_index][other_edge_node_index]
                         cost += task_size * distance
     return cost
@@ -53,21 +51,19 @@ def compute_i2c_transmission_cost(
     distance_matrix_between_edge_nodes_and_the_cloud: np.ndarray,
     task_offloading_actions: Dict,
     client_vehicles: List[vehicle],
-    tasks: List[task],
-    maximum_client_vehicle_number: int,
+    client_vehicle_number: int,
     maximum_task_generation_number: int,
     now: int,
 ):
     cost = 0.0
-    for i in range(maximum_client_vehicle_number):
+    for i in range(client_vehicle_number):
         if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index] == 1:
             tasks_of_vehicle_i = client_vehicles.get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), maximum_task_generation_number)
             if min_num > 0:
                 for j in range(min_num):
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Cloud":
-                        task_id = tasks_of_vehicle_i[j][1]
-                        task_size = tasks[task_id].get_input_data_size()
+                        task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
                         distance = distance_matrix_between_edge_nodes_and_the_cloud[edge_node_index]
                         cost += task_size * distance
     return cost
