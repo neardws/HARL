@@ -11,7 +11,7 @@ from objects.edge_node_object import edge_node
 from objects.cloud_server_object import cloud_server
 from utilities.object_generation import generate_task_set, generate_vehicles, generate_edge_nodes, generate_cloud
 from utilities.vehicle_classification import get_client_and_server_vehicles
-from utilities.distance_and_coverage import get_distance_matrix_between_client_vehicles_and_server_vehicles, get_distance_matrix_between_vehicles_and_edge_nodes, get_distance_matrix_between_edge_nodes  
+from utilities.distance_and_coverage import get_distance_matrix_between_client_vehicles_and_server_vehicles, get_distance_matrix_between_vehicles_and_edge_nodes, get_distance_matrix_between_edge_nodes, get_distance_matrix_between_edge_nodes_and_the_cloud  
 from utilities.distance_and_coverage import get_vehicles_under_V2I_communication_range, get_vehicles_under_V2V_communication_range
 from queues.lc_queue import LCQueue
 from queues.v2v_queue import V2VQueue
@@ -773,14 +773,15 @@ class VECEnv:
         transmission_power_allocation_actions: Dict,
         computation_resource_allocation_actions: Dict,
     ):
+        # TODO need to be normalized
         total_cost = self.compute_total_cost(
             transmission_power_allocation_actions=transmission_power_allocation_actions,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
         )
-        # TODO add the task generation number
+        # TODO need to be normalized
         phi_t = compute_phi_t(
             now=self.cur_step,
-            task_generation_number=self._task_generation_number,
+            task_number=self._task_num,
             delay_queues=self._delay_queues,
             client_vehicle_number=self._client_vehicle_num,
             lc_queues=self._local_computing_resource_queues,

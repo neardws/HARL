@@ -104,4 +104,19 @@ def get_distance_matrix_between_edge_nodes(
     return distance_matrix
 
 
+def get_distance_matrix_between_edge_nodes_and_the_cloud(
+    edge_nodes: List[edge_node],
+    cloud_server,
+) -> np.ndarray:
+    num_edge_nodes = len(edge_nodes)
+    distance_matrix = np.zeros((num_edge_nodes, ))
+    for i in range(num_edge_nodes):
+        distance_matrix[i] = calculate_distance(
+            edge_nodes[i].get_mobility(), 
+            cloud_server.get_mobility(),
+            type="edge_nodes"
+        )
+    return distance_matrix
+
+
 

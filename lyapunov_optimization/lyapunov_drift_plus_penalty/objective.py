@@ -7,7 +7,7 @@ from lyapunov_optimization.virtual_queues.cloud_compjuting_resource_queue import
 
 def compute_phi_t(
     now: int,
-    task_generation_number: int,
+    task_number: int,
     delay_queues: List[delayQueue],
     client_vehicle_number: int,
     lc_queues: List[lc_ressource_queue],
@@ -19,7 +19,7 @@ def compute_phi_t(
 ):
     phi_t = 0.0
     
-    for i in range(task_generation_number):
+    for i in range(task_number):
         phi_t += (delay_queues[i].get_queue(now) - delay_queues[i].get_output_by_time(now)) * \
             delay_queues[i].get_input_by_time(now)
     for i in range(client_vehicle_number):

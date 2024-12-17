@@ -1,13 +1,16 @@
 from typing import List
+from objects.mobility_object import mobility
 
 class cloud_server(object):
     def __init__(
         self,
+        cloud_mobility: mobility,
         computing_capability: float,
         storage_capability: float,
         time_slot_num: int,
         wired_bandwidths: List[float],
-        ) -> None:
+    ) -> None:
+        self._mobility : mobility = cloud_mobility
         self._computing_capability : float = computing_capability
         self._storage_capability : float = storage_capability
         self._time_slot_num : int = time_slot_num
@@ -15,6 +18,9 @@ class cloud_server(object):
         self._available_storage_capability : List[float] = [storage_capability for _ in range(self._time_slot_num)]   
         self._wired_bandwidth : List[float] = wired_bandwidths
         
+    def get_mobility(self) -> mobility:
+        return self._mobility
+    
     def get_computing_capability(self) -> float:
         return self._computing_capability
     
