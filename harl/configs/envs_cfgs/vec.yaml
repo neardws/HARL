@@ -1,0 +1,62 @@
+slot_length: 100
+task_num: 100
+task_distribution: "uniform"
+min_input_data_size_of_tasks: 0.01  # MB
+max_input_data_size_of_tasks: 5.0   # MB
+min_cqu_cycles_of_tasks: 100        # cycles/bit
+max_cqu_cycles_of_tasks: 500        # cycles/bit
+
+vehicle_num: 100
+vehicle_mobility_file_name_key: "I-80-Emeryville-CA-1650feet-0500pm-0515pm"
+vehicular_trajectories_processing_start_time: "2005-04-13 17:00:00"
+vehicular_trajectories_processing_selection_way: "max_duration"
+vehicular_trajectories_processing_filling_way: "linear"
+vehicular_trajectories_processing_chunk_size: 100000
+min_computing_capability_of_vehicles: 1.0         # GHz
+max_computing_capability_of_vehicles: 5.0         # GHz
+min_storage_capability_of_vehicles: 5.0           # MB
+max_storage_capability_of_vehicles: 10.0          # MB
+min_transmission_power_of_vehicles: 500.0         # mW
+max_transmission_power_of_vehicles: 1000.0        # mW
+V2V_distance: 100.0                               # meters
+min_task_arrival_rate_of_vehicles: 0.5            # tasks/sec
+max_task_arrival_rate_of_vehicles: 1.0            # tasks/sec
+vehicle_distribution: "uniform"
+# maximum_task_generation_number_of_vehicles: 0     # TODO TBD
+task_ids_rate: 0.1                                # 10%
+
+edge_num: 9
+min_computing_capability_of_edges: 50.0           # GHz
+max_computing_capability_of_edges: 500.0          # GHz
+min_storage_capability_of_edges: 20.0             # MB
+max_storage_capability_of_edges: 100.0            # MB
+min_communication_range_of_edges: 100.0           # meters
+max_communication_range_of_edges: 300.0           # meters
+I2I_transmission_rate: 100.0                      # Mbps
+I2I_transmission_weight: 100.0
+I2I_propagation_speed: 200000                     # km/s  about 2/3 speed of light
+edge_distribution: "uniform"
+
+cloud_computing_capability: 1000.0                # GHz
+cloud_storage_capability: 1000.0                  # MB
+min_I2C_wired_bandwidth: 100.0                    # Mbps
+max_I2C_wired_bandwidth: 500.0                    # Mbps
+I2C_transmission_rate: 500.0                      # Mbps
+I2C_propagation_speed: 225000.0                   # km/s about 3/4 speed of light
+cloud_distribution: "uniform"
+
+V2V_bandwidth: 20.0                               # MHz
+V2I_bandwidth: 20.0                               # MHz
+white_gaussian_noise: -90                         # dBm
+path_loss_exponent: 3
+# task_seeds: []                                    # TODO TBD
+# vehicle_seeds: []                                 # TODO TBD
+# edge_seeds: []                                    # TODO TBD
+# cloud_seed: 0                                     # TODO TBD
+
+penalty_weight: 100000.0                          # 1 x 10^5
+
+# maximum_task_offloaded_at_client_vehicle_number: 0    # TODO TBD
+# maximum_task_offloaded_at_server_vehicle_number: 0    # TODO TBD
+# maximum_task_offloaded_at_edge_node_number: 0         # TODO TBD
+# maximum_task_offloaded_at_cloud_number: 0             # TODO TBD

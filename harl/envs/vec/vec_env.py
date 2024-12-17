@@ -59,7 +59,10 @@ class VECEnv:
         self._min_task_arrival_rate_of_vehicles: float = self.args["min_task_arrival_rate_of_vehicles"]
         self._max_task_arrival_rate_of_vehicles: float = self.args["max_task_arrival_rate_of_vehicles"]
         self._vehicle_distribution: str = self.args["vehicle_distribution"]
-        self._maximum_task_generation_number_of_vehicles : int = self.args["maximum_task_generation_number_of_vehicles"] 
+        if "maximum_task_generation_number_of_vehicles" in self.args:
+            self._maximum_task_generation_number_of_vehicles : int = self.args["maximum_task_generation_number_of_vehicles"] 
+        else:
+            self._maximum_task_generation_number_of_vehicles = 1
         self._task_ids_rate: float = self.args["task_ids_rate"]
         
         self._edge_num: int = self.args["edge_num"]
@@ -86,17 +89,41 @@ class VECEnv:
         self._V2I_bandwidth: float = self.args["V2I_bandwidth"]
         self._white_gaussian_noise: int = self.args["white_gaussian_noise"]
         self._path_loss_exponent: int = self.args["path_loss_exponent"]
-        self._task_seeds: list = self.args["task_seeds"]
-        self._vehicle_seeds: list = self.args["vehicle_seeds"]
-        self._edge_seeds: list = self.args["edge_seeds"]
-        self._cloud_seed: int = self.args["cloud_seed"]
+        if "task_seeds" in self.args:
+            self._task_seeds: list = self.args["task_seeds"]
+        else:
+            self._task_seeds = []
+        if "vehicle_seeds" in self.args:
+            self._vehicle_seeds: list = self.args["vehicle_seeds"]
+        else:
+            self._vehicle_seeds = []
+        if "edge_seeds" in self.args:
+            self._edge_seeds: list = self.args["edge_seeds"]
+        else:
+            self._edge_seeds = []
+        if "cloud_seed" in self.args:
+            self._cloud_seed: int = self.args["cloud_seed"]
+        else:
+            self._cloud_seed = 0
         
         self._penalty_weight = self.args["penalty_weight"]
         
-        self._maximum_task_offloaded_at_client_vehicle_number = self.args["maximum_task_offloaded_at_client_vehicle_number"]
-        self._maximum_task_offloaded_at_server_vehicle_number = self.args["maximum_task_offloaded_at_server_vehicle_number"]
-        self._maximum_task_offloaded_at_edge_node_number = self.args["maximum_task_offloaded_at_edge_node_number"]
-        self._maximum_task_offloaded_at_cloud_number = self.args["maximum_task_offloaded_at_cloud_number"]
+        if "maximum_task_offloaded_at_client_vehicle_number" in self.args:
+            self._maximum_task_offloaded_at_client_vehicle_number : int = self.args["maximum_task_offloaded_at_client_vehicle_number"]
+        else:
+            self._maximum_task_offloaded_at_client_vehicle_number = 1
+        if "maximum_task_offloaded_at_server_vehicle_number" in self.args:
+            self._maximum_task_offloaded_at_server_vehicle_number : int = self.args["maximum_task_offloaded_at_server_vehicle_number"]
+        else:
+            self._maximum_task_offloaded_at_server_vehicle_number = 1
+        if "maximum_task_offloaded_at_edge_node_number" in self.args:
+            self._maximum_task_offloaded_at_edge_node_number : int = self.args["maximum_task_offloaded_at_edge_node_number"]
+        else:
+            self._maximum_task_offloaded_at_edge_node_number = 1
+        if "maximum_task_offloaded_at_cloud_number" in self.args:
+            self._maximum_task_offloaded_at_cloud_number : int = self.args["maximum_task_offloaded_at_cloud_number"]
+        else:
+            self._maximum_task_offloaded_at_cloud_number = 1
         
         self.n_agents : int = self._client_vehicle_num * 2 + self._edge_num + 1
         self.state_space = self.generate_state_space()
