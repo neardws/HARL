@@ -1,3 +1,4 @@
+import profile
 import gym
 import copy
 import numpy as np
@@ -569,7 +570,77 @@ class VECEnv:
                 index += 1
                 
                 observations.append(observation)
+           
+            elif agent_id < self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number + self._edge_node_number :
+                #边缘节点观察
+                observation = np.zeros(self.observation_space[agent_id].shape)
+                index = 0
 
+                edge_node_index = agent_id - self._maximum_client_vehicle_number * 2 - self._maximum_server_vehicle_number
+                #获取任务信息和队列积累
+                edge_tasks = self._task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]
+                min_num = min(len(edge_tasks), self._maximum_task_offloaded_at_edge_node_number)
+
+                for task in range(min_num):
+                    task_data_size = edge_tasks[task]["task"].get_input_data_size()
+                    cqu_cycles = edge_tasks[task]["task"].get_requested_computing_cycles()
+                    observation[index] = task_data_size
+                    index += 1
+                    observation[index] = cqu_cycles
+                    index += 1
+                for _ in range(min_num, self._maximum_task_offloaded_at_edge_node_number):
+                    observation[index] = 0
+                    index += 1
+                    observation[index] = 0
+                    index += 1
+                
+                # 获取V2I连接信息
+                for vehicle in range(self._maximum_client_vehicle_number + self._maximum_server_vehicle_number):
+                    v2i_connection = self._vehicles_under_V2I_communication_range[edge_node_index][vehicle]
+                    observation[index] = v2i_connection
+                    index += 1
+
+                #获取I2I连接信息
+
+                #获取I2C连接信息
+
+                observations.append(observation)
+            else:
+                # 云的观察
+                observation = np.zeros(self.observation_space[self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number
+                                                               + self._edge_node_number + 1].shape)
+                index = 0
+                
+                # 获取云的任务信息
+                cloud_tasks = self._task_offloaded_at_cloud["cloud"]
+                min_num = min(len(cloud_tasks), self._maximum_task_offloaded_at_cloud_number)
+                for task in range(min_num):
+                    task_data_size = cloud_tasks[task]["task"].get_input_data_size()
+                    cqu_cycles = cloud_tasks[task]["task"].get_requested_computing_cycles()
+                    observation[index] = task_data_size
+                    index += 1
+                    observation[index] = cqu_cycles
+                    index += 1
+
+                for _ in range(min_num, self._maximum_task_offloaded_at_cloud_number):
+                    observation[index] = 0
+                    index += 1
+                    observation[index] = 0
+                    index += 1
+
+                # 获取V2C的连接信息
+                for vehicle in range(self._maximum_client_vehicle_number * 2 + self._maximum_server_vehicle_number):
+                    cloud_vehicle_connection = self._cloud_vehicle_connections[0][vehicle]
+                    observation[index] = cloud_vehicle_connection
+                    index += 1
+
+                #获取I2C的连接信息
+                for edge in range(self._edge_node_number):
+                    cloud_edge_connection = self._cloud_edge_connections[0][edge]
+                    observation[index] = cloud_edge_connection
+                    index += 1
+                
+                observations.append(observation)
             # 处理边缘节点和云的观察，与上述类似
             # TODO: @llf-cpu
 
