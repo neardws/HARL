@@ -21,15 +21,13 @@ class VCQueue(baseQueue):
     
     def compute_output(
         self, 
-        tasks : List[task],
         server_vehicle_compute_capability,
         computation_resource_allocation_actions,
         task_offloaded_at_server_vehicles,
     ):
         output = 0.0
         for task, index in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(self._server_vehicle_index)]):
-            task_index = task["task_index"]
-            task_required_cycles = tasks[task_index].get_requested_computing_cycles()
+            task_required_cycles = task["task"].get_requested_computing_cycles()
             allocated_cycles = server_vehicle_compute_capability * \
                 computation_resource_allocation_actions["server_vehicle_" + str(self._server_vehicle_index)][index]
             output += allocated_cycles / task_required_cycles

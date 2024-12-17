@@ -562,16 +562,13 @@ class VECEnv:
         if self.cur_step < self._slot_length - 1:
             # update the lc queues
             for client_vehicle_index in range(self._client_vehicle_num):
-                # TODO update the tasks
                 lc_queue_input = self._lc_queues[client_vehicle_index].compute_input(
                     client_vehicle=self._client_vehicles[client_vehicle_index],
                     task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
-                    tasks=self._tasks,
                 )
                 lc_queue_output = self._lc_queues[client_vehicle_index].compute_output(
                     computation_resource_allocation_actions=computation_resource_allocation_actions,
                     task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
-                    tasks=self._tasks,
                     client_vehicle_computing_capability=self._client_vehicles[client_vehicle_index].get_computing_capability(),
                 )
                 self._lc_queues[client_vehicle_index].update(
@@ -604,9 +601,7 @@ class VECEnv:
                 vc_queue_input = self._vc_queues[server_vehicle_index].compute_input(
                     v2v_transmission_output=v2v_queue_output,
                 )
-                # TODO update the tasks
                 vc_queue_output = self._vc_queues[server_vehicle_index].compute_output(
-                    tasks=self._tasks,
                     server_vehicle_compute_capability=self._server_vehicles[server_vehicle_index].get_computing_capability(),
                     computation_resource_allocation_actions=computation_resource_allocation_actions,
                     task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
@@ -661,9 +656,7 @@ class VECEnv:
                     v2i_transmission_output=v2i_queue_output,
                     i2i_transmission_output=i2i_queue_output,
                 )
-                # TODO update the tasks
                 ec_queue_output = self._ec_queues[edge_node_index].compute_output(
-                    tasks=self._tasks,
                     edge_node_computing_capability=self._edge_nodes[edge_node_index].get_computing_capability(),
                     computation_resource_allocation_actions=computation_resource_allocation_actions,
                     task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
@@ -698,9 +691,7 @@ class VECEnv:
             cc_queue_input = self._cc_queue.compute_input(
                 i2c_transmission_output=i2c_queue_output,
             )
-            # TODO update the tasks
             cc_queue_output = self._cc_queue.compute_output(
-                tasks=self._tasks,
                 cloud_computing_capability=self._cloud.get_computing_capability(),
                 computation_resource_allocation_actions=computation_resource_allocation_actions,
                 task_offloaded_at_cloud=self._task_offloaded_at_cloud,

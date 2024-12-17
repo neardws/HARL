@@ -19,12 +19,11 @@ class LCQueue(baseQueue):
         self, 
         client_vehicle : vehicle,
         task_offloaded_at_client_vehicles,
-        tasks : List[task],
     ):
         input = 0.0
         for task, index in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(self._client_vehicle_index)]):
             task_index = task["task_index"]
-            task_size = tasks[task_index].get_input_data_size()
+            task_size = task["task"].get_input_data_size()
             task_arrival_rate = client_vehicle.get_task_arrival_rate_by_task_index(task_index)
             input += task_size * task_arrival_rate
         return input
@@ -33,13 +32,11 @@ class LCQueue(baseQueue):
         self, 
         computation_resource_allocation_actions,
         task_offloaded_at_client_vehicles,
-        tasks : List[task],
         client_vehicle_computing_capability, # self._client_vehicles[self._client_vehicle_index].get_computing_capability()
     ):
         output = 0.0
         for task, index in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(self._client_vehicle_index)]):
-            task_index = task["task_index"]
-            task_required_cycles = tasks[task_index].get_requested_computing_cycles()
+            task_required_cycles = task["task"].get_requested_computing_cycles()
             allocated_cycles = client_vehicle_computing_capability * \
                 computation_resource_allocation_actions["client_vehicle_" + str(self._client_vehicle_index)][index]
             output += allocated_cycles / task_required_cycles

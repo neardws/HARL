@@ -22,15 +22,13 @@ class ECQueue(baseQueue):
     
     def compute_output(
         self, 
-        tasks : List[task],
         edge_node_computing_capability,
         computation_resource_allocation_actions,
         task_offloaded_at_edge_nodes,
     ):
         output = 0.0
         for task, index in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(self._edge_node_index)]):
-            task_index = task["task_index"]
-            task_required_cycles = tasks[task_index].get_requested_computing_cycles()
+            task_required_cycles = task["task"].get_requested_computing_cycles()
             allocated_cycles = edge_node_computing_capability * \
                 computation_resource_allocation_actions["edge_node_" + str(self._edge_node_index)][index]
             output += allocated_cycles / task_required_cycles

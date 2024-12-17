@@ -19,15 +19,13 @@ class CCQueue(baseQueue):
     
     def compute_output(
         self, 
-        tasks : List[task],
         cloud_computing_capability,
         computation_resource_allocation_actions,
         task_offloaded_at_edge_nodes,
     ):
         output = 0.0
         for task, index in enumerate(task_offloaded_at_edge_nodes["cloud"]):
-            task_index = task["task_index"]
-            task_required_cycles = tasks[task_index].get_requested_computing_cycles()
+            task_required_cycles = task["task"].get_requested_computing_cycles()
             allocated_cycles = cloud_computing_capability * \
                 computation_resource_allocation_actions["cloud"][index]
             output += allocated_cycles / task_required_cycles
