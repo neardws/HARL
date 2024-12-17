@@ -73,12 +73,15 @@ class VECEnv:
         self._max_communication_range_of_edges: float = self.args["max_communication_range_of_edges"]
         self._I2I_transmission_rate: float = self.args["I2I_transmission_rate"]
         self._I2I_transmission_weight: float = self.args["I2I_transmission_weight"]
+        self._I2I_propagation_speed: float = self.args["I2I_propagation_speed"]
         self._edge_distribution: str = self.args["edge_distribution"]
         
         self._cloud_computing_capability: float = self.args["cloud_computing_capability"]
         self._cloud_storage_capability: float = self.args["cloud_storage_capability"]
         self._min_I2C_wired_bandwidth: float = self.args["min_I2C_wired_bandwidth"]
         self._max_I2C_wired_bandwidth: float = self.args["max_I2C_wired_bandwidth"]
+        self._I2C_transmission_rate: float = self.args["I2C_transmission_rate"]
+        self._I2C_propagation_speed: float = self.args["I2C_propagation_speed"]
         self._cloud_distribution: str = self.args["cloud_distribution"]
         
         self._V2V_bandwidth: float = self.args["V2V_bandwidth"]
@@ -247,11 +250,15 @@ class VECEnv:
                 client_vehicle_index=_,
             ) for _ in range(self._client_vehicle_num)]
         
-        # TODO: need to be updated with the tasks
         self._v2v_queues = [V2VQueue(
                 time_slot_num=self._slot_length,
                 name="v2v_queue_" + str(_),
                 server_vehicle_index=_,
+                client_vehicles=self._client_vehicles,
+                client_vehicle_number=self._client_vehicle_num,
+                maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
+                white_gaussian_noise=self._white_gaussian_noise,
+                V2V_bandwidth=self._V2V_bandwidth,
                 channel_gains_between_client_vehicle_and_server_vehicles=self._channel_gains_between_client_vehicle_and_server_vehicles,
             ) for _ in range(self._server_vehicle_num)]
         
@@ -261,21 +268,31 @@ class VECEnv:
                 server_vehicle_index=_,
             ) for _ in range(self._server_vehicle_num)]
         
-        # TODO: need to be updated with the tasks
         self._v2i_queues = [V2IQueue(
                 time_slot_num=self._slot_length,
                 name="v2i_queue_" + str(_),
                 edge_node_index=_,
+                client_vehicles=self._client_vehicles,
+                client_vehicle_number=self._client_vehicle_num,
+                maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
+                white_gaussian_noise=self._white_gaussian_noise,
+                V2I_bandwidth=self._V2I_bandwidth, 
                 channel_gains_between_client_vehicle_and_edge_nodes=self._channel_gains_between_client_vehicle_and_edge_nodes,
             ) for _ in range(self._edge_num)]        
         
-        # TODO need to be updated with the tasks
         self._i2i_queues = [I2IQueue(
                 time_slot_num=self._slot_length,
                 name="i2i_queue_" + str(_),
+                client_vehicles=self._client_vehicles,
+                client_vehicle_number=self._client_vehicle_num,
+                maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
+                edge_node_number=self._edge_num,
                 edge_node_index=_,
-                distance_matrix_between_edge_nodes=self._distance_matrix_between_edge_nodes,
-                wired_bandwidths_between_edge_node_and_other_edge_nodes=self._wired_bandwidths_between_edge_node_and_other_edge_nodes,
+                white_gaussian_noise=self._white_gaussian_noise,
+                V2I_bandwidth=self._V2I_bandwidth,
+                I2I_transmission_rate=self._I2I_transmission_rate,
+                I2I_propagation_speed=self._I2I_propagation_speed,
+                channel_gains_between_client_vehicle_and_edge_nodes=self._channel_gains_between_client_vehicle_and_edge_nodes,
             ) for _ in range(self._edge_num)]
         
         self._ec_queues = [ECQueue(
@@ -284,10 +301,18 @@ class VECEnv:
                 edge_node_index=_,
             ) for _ in range(self._edge_num)]
         
-        # TODO need to be updated with the tasks
         self._i2c_quque = I2CQueue(
                 time_slot_num=self._slot_length,
                 name="i2c_queue",
+                client_vehicles=self._client_vehicles,
+                client_vehicle_number=self._client_vehicle_num,
+                maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
+                edge_node_number=self._edge_num,
+                white_gaussian_noise=self._white_gaussian_noise,
+                V2I_bandwidth=self._V2I_bandwidth,
+                I2C_transmission_rate=self._I2C_transmission_rate,
+                I2C_propagation_speed=self._I2C_propagation_speed,
+                channel_gains_between_client_vehicle_and_edge_nodes=self._channel_gains_between_client_vehicle_and_edge_nodes,
             )
         
         self._cc_queue = CCQueue(

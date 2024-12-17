@@ -11,18 +11,16 @@ class V2IQueue(baseQueue):
         time_slot_num: int,
         name: str,
         edge_node_index : int,
-        tasks: List[task],
         client_vehicles: List[vehicle],
-        maximum_client_vehicle_number: int,
+        client_vehicle_number: int,
         maximum_task_generation_number: int,
         white_gaussian_noise,
         V2I_bandwidth: float,
         channel_gains_between_client_vehicle_and_edge_nodes: np.ndarray,
     ):
         self._edge_node_index = edge_node_index
-        self._tasks = tasks
         self._client_vehicles = client_vehicles
-        self._maximum_client_vehicle_number = maximum_client_vehicle_number
+        self._client_vehicle_number = client_vehicle_number
         self._maximum_task_generation_number = maximum_task_generation_number
         self._white_gaussian_noise = white_gaussian_noise
         self._V2I_bandwidth = V2I_bandwidth
@@ -37,7 +35,7 @@ class V2IQueue(baseQueue):
     ):
         # 根据task_offloading_actions筛选，进一步筛选V2I通信距离内，最后求和
         input = 0.0
-        for i in range(self._maximum_client_vehicle_number):
+        for i in range(self._client_vehicle_number):
             if vehicles_under_V2I_communication_range[i][self._edge_node_index] == 1:
                 tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                 min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -46,7 +44,7 @@ class V2IQueue(baseQueue):
                         if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] .startswith("Edge Node") or \
                             task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Cloud":
                             task_id = tasks_of_vehicle_i[j][1]
-                            task_size = self._tasks[task_id].get_input_data_size()
+                            task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
                             task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_index(task_id)
                             input += task_size * task_arrival_rate
         return input
@@ -59,7 +57,7 @@ class V2IQueue(baseQueue):
         now: int,
     ):
         output = 0.0
-        for i in range(self._maximum_client_vehicle_number):
+        for i in range(self._client_vehicle_number):
             if vehicles_under_V2I_communication_range[i][self._edge_node_index] == 1:
                 tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                 min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -93,7 +91,7 @@ class V2IQueue(baseQueue):
     ):
         # 计算SINR
         interference = 0.0
-        for i in range(self._maximum_client_vehicle_number):
+        for i in range(self._client_vehicle_number):
             if vehicles_under_V2I_communication_range[i][edge_node_index] == 1:
                 tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                 min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)

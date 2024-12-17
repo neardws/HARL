@@ -1,5 +1,4 @@
 from queues.base_queue import baseQueue
-from objects.task_object import task
 from objects.vehicle_object import vehicle
 from typing import List, Dict
 import numpy as np
@@ -11,9 +10,8 @@ class I2CQueue(baseQueue):
         self,
         time_slot_num: int,
         name: str,
-        tasks: List[task],
         client_vehicles: List[vehicle],
-        maximum_client_vehicle_number: int,
+        client_vehicle_number: int,
         maximum_task_generation_number: int,
         edge_node_number: int,
         white_gaussian_noise,
@@ -22,9 +20,8 @@ class I2CQueue(baseQueue):
         I2C_propagation_speed: float,
         channel_gains_between_client_vehicle_and_edge_nodes: np.ndarray,
     ):
-        self._tasks = tasks
         self._client_vehicles = client_vehicles
-        self._maximum_client_vehicle_number = maximum_client_vehicle_number
+        self._client_vehicle_number = client_vehicle_number
         self._maximum_task_generation_number = maximum_task_generation_number
         self._edge_node_number = edge_node_number
         self._white_gaussian_noise = white_gaussian_noise
@@ -44,7 +41,7 @@ class I2CQueue(baseQueue):
         # 根据task_offloading_actions筛选，进一步筛选V2I通信距离内，最后求和
         input = 0.0
         for e in range(self._edge_node_number):
-            for i in range(self._maximum_client_vehicle_number):
+            for i in range(self._client_vehicle_number):
                 if vehicles_under_V2I_communication_range[i][e] == 1:
                     tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                     min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -78,7 +75,7 @@ class I2CQueue(baseQueue):
     ):
         # 计算SINR
         interference = 0.0
-        for i in range(self._maximum_client_vehicle_number):
+        for i in range(self._client_vehicle_number):
             if vehicles_under_V2I_communication_range[i][edge_node_index] == 1:
                 tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                 min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -103,7 +100,6 @@ class I2CQueue(baseQueue):
         transmission_rate = compute_transmission_rate(SINR=sinr, bandwidth=self._V2I_bandwidth)
         return transmission_rate
     
-    # TODO: 注意d_k 是单个的，后面看看需不需要调整为sum of d_k
     def compute_output(
         self,
         task_offloading_actions: Dict,
@@ -113,7 +109,8 @@ class I2CQueue(baseQueue):
     ):
         output = 0.0
         for e in range(self._edge_node_number):
-            for i in range(self._maximum_client_vehicle_number):
+            task_data_size = 0.0
+            for i in range(self._client_vehicle_number):
                 if vehicles_under_V2I_communication_range[i][e] == 1:
                     tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                     min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -121,17 +118,17 @@ class I2CQueue(baseQueue):
                         for j in range(min_num):
                             if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Cloud":
                                 task_id = tasks_of_vehicle_i[j][1]
-                                task_data_size = self._tasks[task_id].get_input_data_size()
-                                transmission_rate = self._I2C_transmission_rate
-                                propagation_speed = self._I2C_propagation_speed
-                                distance = distance_matrix_between_edge_nodes_and_the_cloud[e]
-                                depature_rate = self.obtain_departure_rate(
-                                    task_data_size=task_data_size,
-                                    transmission_rate=transmission_rate,
-                                    propagation_speed=propagation_speed,
-                                    distance=distance,
-                                )
-                                output += depature_rate 
+                                task_data_size += tasks_of_vehicle_i[j][2].get_input_data_size()
+            transmission_rate = self._I2C_transmission_rate
+            propagation_speed = self._I2C_propagation_speed
+            distance = distance_matrix_between_edge_nodes_and_the_cloud[e]
+            depature_rate = self.obtain_departure_rate(
+                task_data_size=task_data_size,
+                transmission_rate=transmission_rate,
+                propagation_speed=propagation_speed,
+                distance=distance,
+            )
+            output += depature_rate 
         return output    
     
     def obtain_departure_rate(

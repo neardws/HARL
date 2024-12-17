@@ -11,9 +11,8 @@ class I2IQueue(baseQueue):
         self,
         time_slot_num: int,
         name: str,
-        tasks: List[task],
         client_vehicles: List[vehicle],
-        maximum_client_vehicle_number: int,
+        client_vehicle_number: int,
         maximum_task_generation_number: int,
         edge_node_number: int,
         edge_node_index: int,
@@ -23,9 +22,8 @@ class I2IQueue(baseQueue):
         I2I_propagation_speed: float,
         channel_gains_between_client_vehicle_and_edge_nodes: np.ndarray,
     ):
-        self._tasks = tasks
         self._client_vehicles = client_vehicles
-        self._maximum_client_vehicle_number = maximum_client_vehicle_number
+        self._client_vehicle_number = client_vehicle_number
         self._maximum_task_generation_number = maximum_task_generation_number
         self._edge_node_number = edge_node_number
         self._edge_node_index = edge_node_index
@@ -47,7 +45,7 @@ class I2IQueue(baseQueue):
         input = 0.0
         for e in range(self._edge_node_number):
             if e != self._edge_node_index:
-                for i in range(self._maximum_client_vehicle_number):
+                for i in range(self._client_vehicle_number):
                     if vehicles_under_V2I_communication_range[i][e] == 1:
                         tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                         min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -81,7 +79,7 @@ class I2IQueue(baseQueue):
     ):
         # 计算SINR
         interference = 0.0
-        for i in range(self._maximum_client_vehicle_number):
+        for i in range(self._client_vehicle_number):
             if vehicles_under_V2I_communication_range[i][edge_node_index] == 1:
                 tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                 min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -116,7 +114,7 @@ class I2IQueue(baseQueue):
         output = 0.0
         for e in range(self._edge_node_number):
             if e != self._edge_node_index:
-                for i in range(self._maximum_client_vehicle_number):
+                for i in range(self._client_vehicle_number):
                     if vehicles_under_V2I_communication_range[i][e] == 1:
                         tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                         min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
@@ -124,7 +122,7 @@ class I2IQueue(baseQueue):
                             for j in range(min_num):
                                 if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Edge Node " + str(e):
                                     task_id = tasks_of_vehicle_i[j][1]
-                                    task_data_size = self._tasks[task_id].get_input_data_size()
+                                    task_data_size = tasks_of_vehicle_i[j][2].get_input_data_size()
                                     transmission_rate = self._I2I_transmission_rate
                                     propagation_speed = self._I2I_propagation_speed
                                     distance = distance_matrix_between_edge_nodes[e][self._edge_node_index]
