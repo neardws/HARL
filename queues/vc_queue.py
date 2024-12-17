@@ -14,10 +14,9 @@ class VCQueue(baseQueue):
     
     def compute_input(
         self, 
-        local_computing_input,
         v2v_transmission_output, 
     ):
-        input = local_computing_input + v2v_transmission_output
+        input = v2v_transmission_output
         return input
     
     def compute_output(

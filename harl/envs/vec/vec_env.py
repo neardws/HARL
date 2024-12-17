@@ -35,9 +35,14 @@ class VECEnv:
         
         self.args = copy.deepcopy(args)
         
+        
+        # TODO: Add the values from the args dictionary
+
+
         # TODO: Add the values from the args dictionary
 
         self._slot_length: int = self.args["slot_length"]
+        
         self._task_num: int = self.args["task_num"]
         self._task_distribution: str = self.args["task_distribution"]
         self._min_input_data_size_of_tasks: float = self.args["min_input_data_size_of_tasks"]
@@ -46,6 +51,7 @@ class VECEnv:
         self._max_cqu_cycles_of_tasks: float = self.args["max_cqu_cycles_of_tasks"]
         self._min_deadline_of_tasks: float = self.args["min_deadline_of_tasks"]
         self._max_deadline_of_tasks: float = self.args["max_deadline_of_tasks"]
+        
         self._vehicle_num: int = self.args["vehicle_num"]
         self._vehicle_mobility_file_name_key: str = self.args["vehicle_mobility_file_name_key"]
         self._vehicular_trajectories_processing_start_time : str = self.args["vehicular_trajectories_processing_start_time"]
@@ -62,6 +68,7 @@ class VECEnv:
         self._min_task_arrival_rate_of_vehicles: float = self.args["min_task_arrival_rate_of_vehicles"]
         self._max_task_arrival_rate_of_vehicles: float = self.args["max_task_arrival_rate_of_vehicles"]
         self._vehicle_distribution: str = self.args["vehicle_distribution"]
+        
         self._edge_num: int = self.args["edge_num"]
         self._min_computing_capability_of_edges: float = self.args["min_computing_capability_of_edges"]
         self._max_computing_capability_of_edges: float = self.args["max_computing_capability_of_edges"]
@@ -72,11 +79,13 @@ class VECEnv:
         self._I2I_transmission_rate: float = self.args["I2I_transmission_rate"]
         self._I2I_transmission_weight: float = self.args["I2I_transmission_weight"]
         self._edge_distribution: str = self.args["edge_distribution"]
+        
         self._cloud_computing_capability: float = self.args["cloud_computing_capability"]
         self._cloud_storage_capability: float = self.args["cloud_storage_capability"]
         self._min_I2C_wired_bandwidth: float = self.args["min_I2C_wired_bandwidth"]
         self._max_I2C_wired_bandwidth: float = self.args["max_I2C_wired_bandwidth"]
         self._cloud_distribution: str = self.args["cloud_distribution"]
+        
         self._V2V_bandwidth: float = self.args["V2V_bandwidth"]
         self._V2I_bandwidth: float = self.args["V2I_bandwidth"]
         self._white_gaussian_noise: int = self.args["white_gaussian_noise"]
@@ -224,7 +233,6 @@ class VECEnv:
         )
         
         # print("self._distance_matrix_between_client_vehicles_and_edge_nodes:\n", self._distance_matrix_between_client_vehicles_and_edge_nodes)
-        
         self._vehicles_under_V2V_communication_range : np.ndarray = get_vehicles_under_V2V_communication_range(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
@@ -232,7 +240,6 @@ class VECEnv:
         )
         
         # print("self._vehicles_under_V2V_communication_range:\n", self._vehicles_under_V2V_communication_range)
-        
         self._vehicles_under_V2I_communication_range : np.ndarray = get_vehicles_under_V2I_communication_range(
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
@@ -240,7 +247,6 @@ class VECEnv:
         )
         
         # print("self._vehicles_under_V2I_communication_range:\n", self._vehicles_under_V2I_communication_range)
-        
         self._channel_gains_between_client_vehicle_and_server_vehicles = obtain_channel_gains_between_client_vehicle_and_server_vehicles(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
@@ -319,8 +325,8 @@ class VECEnv:
         self._v2i_queue_backlogs = np.zeros((self._edge_node_number, self._slot_length))
         self._i2i_queue_backlogs = np.zeros((self._edge_node_number, self._slot_length))
         self._ec_queue_backlogs = np.zeros((self._edge_node_number, self._slot_length))
-        self._i2c_queue_backlogs = np.zeros((1, self._slot_length))
-        self._cc_queue_backlogs = np.zeros((1, self._slot_length))
+        self._i2c_queue_backlogs = np.zeros((self._slot_length, ))
+        self._cc_queue_backlogs = np.zeros((self._slot_length, ))
         
         # init the virtual queues
         self._delay_queues = [delayQueue(
@@ -356,9 +362,7 @@ class VECEnv:
             time_slot_num=self._slot_length,
             name="cc_ressource_queue_" + str(_),
             cloud_computing_capability=self._cloud.get_computing_capability(),
-        )
-        
-        
+        ) 
 
     def step(self, actions):
         # transform the actions into the task offloading actions, transmission power allocation actions, computation resource allocation actions
@@ -382,7 +386,7 @@ class VECEnv:
         
         self.cur_step += 1
         dones = [False for _ in range(self.n_agents)]
-        if self.cur_step == self.max_cycles:
+        if self.cur_step == self._slot_length:
             dones = [True for _ in range(self.n_agents)]
         info = [{} for _ in range(self.n_agents)]
         obs = self.obtain_observation()
@@ -396,7 +400,6 @@ class VECEnv:
             info,
             self.get_avail_actions(),
         )
-        # return obs, state, rewards, dones, info, available_actions
 
     def reset(self):
         self._seed += 1
@@ -408,6 +411,262 @@ class VECEnv:
         s_obs = self.repeat(self.state())
         
         return obs, s_obs, self.get_avail_actions()
+    
+    def update(
+        self,
+        task_offloading_actions: Dict,
+        transmission_power_allocation_actions: Dict,
+        computation_resource_allocation_actions: Dict,
+    ):
+        # update the environment
+        self.update_actural_queues(
+            task_offloading_actions=task_offloading_actions,
+            transmission_power_allocation_actions=transmission_power_allocation_actions,
+            computation_resource_allocation_actions=computation_resource_allocation_actions,
+        )
+        
+        # TODO update the virtual queues
+        
+    
+    def update_actural_queues(
+        self,
+        task_offloading_actions: Dict,
+        transmission_power_allocation_actions: Dict,
+        computation_resource_allocation_actions: Dict,
+    ):
+        if self.cur_step < self._slot_length - 1:
+            # update the lc queues
+            for client_vehicle_index in range(self._client_vehicle_num):
+                # TODO update the tasks
+                lc_queue_input = self._lc_queues[client_vehicle_index].compute_input(
+                    client_vehicle=self._client_vehicles[client_vehicle_index],
+                    task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
+                    tasks=self._tasks,
+                )
+                lc_queue_output = self._lc_queues[client_vehicle_index].compute_output(
+                    computation_resource_allocation_actions=computation_resource_allocation_actions,
+                    task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
+                    tasks=self._tasks,
+                    client_vehicle_computing_capability=self._client_vehicles[client_vehicle_index].get_computing_capability(),
+                )
+                self._lc_queues[client_vehicle_index].update(
+                    input=lc_queue_input,
+                    output=lc_queue_output,
+                    now=self.cur_step,
+                )
+                self._lc_queue_backlogs[client_vehicle_index][self.cur_step + 1] = self._lc_queues[client_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+                
+            # update the v2v and vc queues
+            for server_vehicle_index in range(self._server_vehicle_num):
+                v2v_queue_input = self._v2v_queues[server_vehicle_index].compute_input(
+                    task_offloading_actions=task_offloading_actions,
+                    vehicles_under_V2V_communication_range=self._vehicles_under_V2V_communication_range,
+                    now=self.cur_step,
+                )
+                v2v_queue_output = self._v2v_queues[server_vehicle_index].compute_output(
+                    task_offloading_actions=task_offloading_actions,
+                    transmission_power_allocation_actions=transmission_power_allocation_actions,
+                    vehicles_under_V2V_communication_range=self._vehicles_under_V2V_communication_range,
+                    now=self.cur_step,
+                )
+                self._v2v_queues[server_vehicle_index].update(
+                    input=v2v_queue_input,
+                    output=v2v_queue_output,
+                    now=self.cur_step,
+                )
+                self._v2v_queue_backlogs[server_vehicle_index][self.cur_step + 1] = self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+                
+                vc_queue_input = self._vc_queues[server_vehicle_index].compute_input(
+                    v2v_transmission_output=v2v_queue_output,
+                )
+                # TODO update the tasks
+                vc_queue_output = self._vc_queues[server_vehicle_index].compute_output(
+                    tasks=self._tasks,
+                    server_vehicle_compute_capability=self._server_vehicles[server_vehicle_index].get_computing_capability(),
+                    computation_resource_allocation_actions=computation_resource_allocation_actions,
+                    task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
+                )
+                self._vc_queues[server_vehicle_index].update(
+                    input=vc_queue_input,
+                    output=vc_queue_output,
+                    now=self.cur_step,
+                )
+                self._vc_queue_backlogs[server_vehicle_index][self.cur_step + 1] = self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+
+            # update the v2i, i2i and ec queues
+            for edge_node_index in range(self._edge_node_number):
+                v2i_queue_input = self._v2i_queues[edge_node_index].compute_input(
+                    task_offloading_actions=task_offloading_actions,
+                    vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
+                    now=self.cur_step,
+                )
+                v2i_queue_output = self._v2i_queues[edge_node_index].compute_output(
+                    task_offloading_actions=task_offloading_actions,
+                    transmission_power_allocation_actions=transmission_power_allocation_actions,
+                    vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
+                    now=self.cur_step,
+                )
+                self._v2i_queues[edge_node_index].update(
+                    input=v2i_queue_input,
+                    output=v2i_queue_output,
+                    now=self.cur_step,
+                )
+                self._v2i_queue_backlogs[edge_node_index][self.cur_step + 1] = self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                
+                i2i_queue_input = self._i2i_queues[edge_node_index].compute_input(
+                    task_offloading_actions=task_offloading_actions,
+                    transmission_power_allocation_actions=transmission_power_allocation_actions,
+                    vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
+                    now=self.cur_step,
+                )
+                i2i_queue_output = self._i2i_queues[edge_node_index].compute_output(
+                    task_offloading_actions=task_offloading_actions,
+                    vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
+                    distance_matrix_between_edge_nodes=self._distance_matrix_between_edge_nodes,
+                    now=self.cur_step,
+                )
+                self._i2i_queues[edge_node_index].update(
+                    input=i2i_queue_input,
+                    output=i2i_queue_output,
+                    now=self.cur_step,
+                )
+                self._i2i_queue_backlogs[edge_node_index][self.cur_step + 1] = self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                
+                ec_queue_input = self._ec_queues[edge_node_index].compute_input(
+                    v2i_transmission_output=v2i_queue_output,
+                    i2i_transmission_output=i2i_queue_output,
+                )
+                # TODO update the tasks
+                ec_queue_output = self._ec_queues[edge_node_index].compute_output(
+                    tasks=self._tasks,
+                    edge_node_computing_capability=self._edge_nodes[edge_node_index].get_computing_capability(),
+                    computation_resource_allocation_actions=computation_resource_allocation_actions,
+                    task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
+                )
+                self._ec_queues[edge_node_index].update(
+                    input=ec_queue_input,
+                    output=ec_queue_output,
+                    now=self.cur_step,
+                )
+                self._ec_queue_backlogs[edge_node_index][self.cur_step + 1] = self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                
+            # update the i2c and cc queues
+            i2c_queue_input = self._i2c_quque.compute_input(
+                task_offloading_actions=task_offloading_actions,
+                transmission_power_allocation_actions=transmission_power_allocation_actions,
+                vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
+                now=self.cur_step,
+            )
+            i2c_queue_output = self._i2c_quque.compute_output(
+                task_offloading_actions=task_offloading_actions,
+                vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
+                distance_matrix_between_edge_nodes_and_the_cloud=self._distance_matrix_between_edge_nodes_and_the_cloud,
+                now=self.cur_step,
+            )
+            self._i2c_quque.update(
+                input=i2c_queue_input,
+                output=i2c_queue_output,
+                now=self.cur_step,
+            )
+            self._i2c_queue_backlogs[self.cur_step + 1] = self._i2c_quque.get_queue(time_slot=self.cur_step + 1)
+                        
+            cc_queue_input = self._cc_queue.compute_input(
+                i2c_transmission_output=i2c_queue_output,
+            )
+            # TODO update the tasks
+            cc_queue_output = self._cc_queue.compute_output(
+                tasks=self._tasks,
+                cloud_computing_capability=self._cloud.get_computing_capability(),
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+                task_offloaded_at_cloud=self._task_offloaded_at_cloud,
+            )
+            self._cc_queue.update(
+                input=cc_queue_input,
+                output=cc_queue_output,
+                now=self.cur_step,
+            )
+            self._cc_queue_backlogs[self.cur_step + 1] = self._cc_queue.get_queue(time_slot=self.cur_step + 1)
+
+    def update_virtual_queues(
+        self,
+        task_offloading_actions: Dict,
+        computation_resource_allocation_actions: Dict,
+    ):
+        # update the delay queues
+        for task_index in range(self._task_num):
+            delay_queue_input = self._delay_queues[task_index].compute_input(
+                client_vehicles=self._client_vehicles,
+                now=self.cur_step,
+                task_offloading_decisions=task_offloading_actions,
+                lc_queue_backlogs=self._lc_queue_backlogs,
+                v2v_queue_backlogs=self._v2v_queue_backlogs,
+                vc_queue_backlogs=self._vc_queue_backlogs,
+                v2i_queue_backlogs=self._v2i_queue_backlogs,
+                i2i_queue_backlogs=self._i2i_queue_backlogs,
+                ec_queue_backlogs=self._ec_queue_backlogs,
+                i2c_queue_backlogs=self._i2c_queue_backlogs,
+                cc_queue_backlogs=self._cc_queue_backlogs,
+            )
+            delay_queue_output = self._delay_queues[task_index].compute_output(
+                client_vehicles=self._client_vehicles,
+            )
+            
+            self._delay_queues[task_index].update(
+                input=delay_queue_input,
+                output=delay_queue_output,
+                now=self.cur_step,
+            )
+        
+        # update the local computing resource queues
+        for client_vehicle_index in range(self._client_vehicle_num):
+            lc_ressource_queue_input = self._local_computing_resource_queues[client_vehicle_index].compute_input(
+                task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+            )
+            lc_ressource_queue_output = self._local_computing_resource_queues[client_vehicle_index].compute_output()
+            self._local_computing_resource_queues[client_vehicle_index].update(
+                input=lc_ressource_queue_input,
+                output=lc_ressource_queue_output,
+                now=self.cur_step,
+            )
+        
+        # update the vehicle computing resource queues
+        for server_vehicle_index in range(self._server_vehicle_num):
+            vc_ressource_queue_input = self._vehicle_computing_resource_queues[server_vehicle_index].compute_input(
+                task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+            )
+            vc_ressource_queue_output = self._vehicle_computing_resource_queues[server_vehicle_index].compute_output()
+            self._vehicle_computing_resource_queues[server_vehicle_index].update(
+                input=vc_ressource_queue_input,
+                output=vc_ressource_queue_output,
+                now=self.cur_step,
+            )
+        
+        # update the edge computing resource queues
+        for edge_node_index in range(self._edge_node_number):
+            ec_ressource_queue_input = self._edge_computing_resource_queues[edge_node_index].compute_input(
+                task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
+                computation_resource_allocation_actions=computation_resource_allocation_actions,
+            )
+            ec_ressource_queue_output = self._edge_computing_resource_queues[edge_node_index].compute_output()
+            self._edge_computing_resource_queues[edge_node_index].update(
+                input=ec_ressource_queue_input,
+                output=ec_ressource_queue_output,
+                now=self.cur_step,
+            )
+        
+        # update the cloud computing resource queue
+        cc_ressource_queue_input = self._cloud_computing_resource_queue.compute_input(
+            task_offloaded_at_cloud=self._task_offloaded_at_cloud,
+            computation_resource_allocation_actions=computation_resource_allocation_actions,
+        )
+        cc_ressource_queue_output = self._cloud_computing_resource_queue.compute_output()
+        self._cloud_computing_resource_queue.update(
+            input=cc_ressource_queue_input,
+            output=cc_ressource_queue_output,
+            now=self.cur_step,
+        )
     
     def compute_reward(
         self,
@@ -694,7 +953,7 @@ class VECEnv:
 
         return observations
 
-    
+    # TODO need to be normalized
     def state(self):
         # 初始化一个状态数组，形状为 (state_space_number,)
         state = np.zeros(self.state_space.shape)  # self.state_space 是通过 generate_state_space 生成的

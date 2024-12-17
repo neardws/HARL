@@ -13,7 +13,7 @@ class delayQueue(baseQueue):
         self, 
         client_vehicles: List[vehicle],
         now: int,
-        task_offloading_decision,
+        task_offloading_decisions,
         lc_queue_backlogs,
         v2v_queue_backlogs,
         vc_queue_backlogs,
@@ -33,7 +33,7 @@ class delayQueue(baseQueue):
                         input += self.compute_total_queue_length(
                             client_vehicle_index,
                             self._task_index,
-                            task_offloading_decision,
+                            task_offloading_decisions,
                             lc_queue_backlogs,
                             v2v_queue_backlogs,
                             vc_queue_backlogs,
@@ -49,7 +49,7 @@ class delayQueue(baseQueue):
         self,
         client_vehicle_index: int,
         task_index: int,
-        task_offloading_decision,
+        task_offloading_decisions,
         lc_queue_backlogs,
         v2v_queue_backlogs,
         vc_queue_backlogs,
@@ -59,7 +59,7 @@ class delayQueue(baseQueue):
         i2c_queue_backlogs,
         cc_queue_backlogs,
     ):
-        task_offloading = task_offloading_decision["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(task_index)]
+        task_offloading = task_offloading_decisions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(task_index)]
         if task_offloading == "Local":
             return lc_queue_backlogs[client_vehicle_index]
         elif task_offloading.startswith("Server Vehicle "):
