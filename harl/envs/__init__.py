@@ -7,6 +7,7 @@ from harl.envs.gym.gym_logger import GYMLogger
 from harl.envs.football.football_logger import FootballLogger
 from harl.envs.dexhands.dexhands_logger import DexHandsLogger
 from harl.envs.lag.lag_logger import LAGLogger
+from harl.envs.vec.vec_logger import VECLogger
 
 FLAGS = flags.FLAGS
 FLAGS(["train_sc.py"])
@@ -20,4 +21,5 @@ LOGGER_REGISTRY = {
     "dexhands": DexHandsLogger,
     "smacv2": SMACv2Logger,
     "lag": LAGLogger,
+    "vec": VECLogger,
 }
