@@ -119,26 +119,37 @@ def compute_cc_computing_cost(
         cost += allocated_cycles
     return cost
 
-# TODO: need to be normalized
 def compute_total_cost(
     client_vehicle_number: int,
-    v2v_transmission_costs : List[float],
-    v2i_transmission_costs : List[float],
-    lc_computing_costs : List[float],
+    v2v_transmission_costs : np.ndarray,
+    maxmimum_v2v_transmission_costs : np.ndarray,
+    v2i_transmission_costs : np.ndarray,
+    maximum_v2i_transmission_costs : np.ndarray,
+    lc_computing_costs : np.ndarray,
+    maximum_lc_computing_costs : np.ndarray,
     server_vehicle_number: int,
-    vc_computing_costs : List[float],
+    vc_computing_costs : np.ndarray,
+    maximum_vc_computing_costs : np.ndarray,
     edge_node_number: int,
-    ec_computing_costs : List[float],
-    i2i_transmission_costs : List[float],
-    i2c_transmission_costs : List[float],
+    ec_computing_costs : np.ndarray,
+    maximum_ec_computing_costs : np.ndarray,
+    i2i_transmission_costs : np.ndarray,
+    maximum_i2i_transmission_costs : np.ndarray,
+    i2c_transmission_costs : np.ndarray,
+    maximum_i2c_transmission_costs : np.ndarray,
     cc_computing_cost : float,
+    maximum_cc_computing_cost : float,
 ):
     total_cost = 0.0
     for i in range(client_vehicle_number):
-        total_cost += v2v_transmission_costs[i] + v2i_transmission_costs[i] + lc_computing_costs[i]
+        total_cost += v2v_transmission_costs[i] / maxmimum_v2v_transmission_costs[i] + \
+            v2i_transmission_costs[i] / maximum_v2i_transmission_costs[i] + \
+            lc_computing_costs[i] / maximum_lc_computing_costs[i]
     for i in range(server_vehicle_number):
-        total_cost += vc_computing_costs[i]
+        total_cost += vc_computing_costs[i] / maximum_vc_computing_costs[i]
     for i in range(edge_node_number):
-        total_cost += ec_computing_costs[i] + i2i_transmission_costs[i] + i2c_transmission_costs[i]
-    total_cost += cc_computing_cost
+        total_cost += ec_computing_costs[i] / maximum_ec_computing_costs[i] + \
+            i2i_transmission_costs[i] / maximum_i2i_transmission_costs[i] + \
+            i2c_transmission_costs[i] / maximum_i2c_transmission_costs[i]
+    total_cost += cc_computing_cost / maximum_cc_computing_cost
     return total_cost

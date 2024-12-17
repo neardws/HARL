@@ -5,7 +5,6 @@ from typing import List, Dict
 from harl.common.valuenorm import ValueNorm
 from utilities.noma import obtain_channel_gains_between_client_vehicle_and_server_vehicles, obtain_channel_gains_between_vehicles_and_edge_nodes
 from utilities.wired_bandwidth import get_wired_bandwidth_between_edge_node_and_other_edge_nodes
-from objects.task_object import task
 from objects.vehicle_object import vehicle
 from objects.edge_node_object import edge_node
 from objects.cloud_server_object import cloud_server
@@ -148,6 +147,19 @@ class VECEnv:
         self._maximum_task_data_size, self._maximum_task_required_cycles = self.obtain_maximum_task_data_size_and_required_cycles_of_vehicles(
             vehicles=self._vehicles,
         )
+        
+        # init the maximum costs
+        self._maximum_v2v_transmission_costs = np.zeros((self._client_vehicle_num, ))
+        self._maximum_v2i_transmission_costs = np.zeros((self._client_vehicle_num, ))
+        self._maximum_lc_computing_costs = np.zeros((self._client_vehicle_num, ))
+        
+        self._maximum_vc_computing_costs = np.zeros((self._server_vehicle_num, ))
+        
+        self._maximum_ec_computing_costs = np.zeros((self._edge_num, ))
+        self._maximum_i2i_transmission_costs = np.zeros((self._edge_num, ))
+        self._maximum_i2c_transmission_costs = np.zeros((self._edge_num, ))
+        
+        self._maximum_cc_computing_cost = 0.0
         
         self._edge_nodes : List[edge_node] = generate_edge_nodes(
             edge_num=self._edge_num,
@@ -829,12 +841,11 @@ class VECEnv:
         transmission_power_allocation_actions: Dict,
         computation_resource_allocation_actions: Dict,
     ):
-        # TODO need to be normalized
+        # TODO need to be normalized the total cost and phi_t
         total_cost = self.compute_total_cost(
             transmission_power_allocation_actions=transmission_power_allocation_actions,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
         )
-        # TODO need to be normalized
         phi_t = compute_phi_t(
             now=self.cur_step,
             task_number=self._task_num,
@@ -874,17 +885,25 @@ class VECEnv:
                 client_vehicle_transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power(),
                 transmission_power_allocation_actions=transmission_power_allocation_actions,
             )
+            if self._maximum_v2v_transmission_costs[client_vehicle_index] < v2v_transmission_costs[client_vehicle_index]:
+                self._maximum_v2v_transmission_costs[client_vehicle_index] = v2v_transmission_costs[client_vehicle_index]
+            
             v2i_transmission_costs[client_vehicle_index] = compute_v2i_transmission_cost(
                 client_vehicle_index=client_vehicle_index,
                 client_vehicle_transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power(),
                 transmission_power_allocation_actions=transmission_power_allocation_actions,
             )
+            if self._maximum_v2i_transmission_costs[client_vehicle_index] < v2i_transmission_costs[client_vehicle_index]:
+                self._maximum_v2i_transmission_costs[client_vehicle_index] = v2i_transmission_costs[client_vehicle_index]
+            
             lc_computing_costs[client_vehicle_index] = compute_lc_computing_cost(
                 client_vehicle_index=client_vehicle_index,
                 client_vehicle_computing_capability=self._client_vehicles[client_vehicle_index].get_computing_capability(),
                 task_offloaded_at_client_vehicles=self._task_offloaded_at_client_vehicles,
                 computation_resource_allocation_actions=computation_resource_allocation_actions,
             )
+            if self._maximum_lc_computing_costs[client_vehicle_index] < lc_computing_costs[client_vehicle_index]:
+                self._maximum_lc_computing_costs[client_vehicle_index] = lc_computing_costs[client_vehicle_index]
         
         # compute the costs of the server vehicles
         for server_vehicle_index in range(self._server_vehicle_num):
@@ -894,6 +913,8 @@ class VECEnv:
                 task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
                 computation_resource_allocation_actions=computation_resource_allocation_actions,
             )
+            if self._maximum_vc_computing_costs[server_vehicle_index] < vc_computing_costs[server_vehicle_index]:
+                self._maximum_vc_computing_costs[server_vehicle_index] = vc_computing_costs[server_vehicle_index]
             
         # compute the costs of the edge nodes
         for edge_node_index in range(self._edge_num):
@@ -903,6 +924,9 @@ class VECEnv:
                 task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
                 computation_resource_allocation_actions=computation_resource_allocation_actions,
             )
+            if self._maximum_ec_computing_costs[edge_node_index] < ec_computing_costs[edge_node_index]:
+                self._maximum_ec_computing_costs[edge_node_index] = ec_computing_costs[edge_node_index]
+            
             i2i_transmission_costs[edge_node_index] = compute_i2i_transmission_cost(
                 edge_node_index=edge_node_index,
                 distance_matrix_between_client_vehicles_and_edge_nodes=self._distance_matrix_between_client_vehicles_and_edge_nodes,
@@ -912,6 +936,9 @@ class VECEnv:
                 maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
                 now=self.cur_step,
             )
+            if self._maximum_i2i_transmission_costs[edge_node_index] < i2i_transmission_costs[edge_node_index]:
+                self._maximum_i2i_transmission_costs[edge_node_index] = i2i_transmission_costs[edge_node_index]
+            
             i2c_transmission_costs[edge_node_index] = compute_i2c_transmission_cost(
                 edge_node_index=edge_node_index,
                 distance_matrix_between_edge_nodes_and_the_cloud=self._distance_matrix_between_edge_nodes_and_the_cloud,
@@ -921,6 +948,8 @@ class VECEnv:
                 maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
                 now=self.cur_step,
             )
+            if self._maximum_i2c_transmission_costs[edge_node_index] < i2c_transmission_costs[edge_node_index]:
+                self._maximum_i2c_transmission_costs[edge_node_index] = i2c_transmission_costs[edge_node_index]
             
         # compute the costs of the cloud
         cc_computing_cost = compute_cc_computing_cost(
@@ -928,18 +957,28 @@ class VECEnv:
             task_offloaded_at_cloud=self._task_offloaded_at_cloud,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
         )
+        if self._maximum_cc_computing_cost < cc_computing_cost:
+            self._maximum_cc_computing_cost = cc_computing_cost
         
         total_cost = compute_total_cost(
             v2v_transmission_costs=v2v_transmission_costs,
+            maxmimum_v2v_transmission_costs=self._maximum_v2v_transmission_costs,
             v2i_transmission_costs=v2i_transmission_costs,
+            maximum_v2i_transmission_costs=self._maximum_v2i_transmission_costs,
             lc_computing_costs=lc_computing_costs,
+            maximum_lc_computing_costs=self._maximum_lc_computing_costs,
             server_vehicle_number=self._server_vehicle_num,
             vc_computing_costs=vc_computing_costs,
+            maximum_vc_computing_costs=self._maximum_vc_computing_costs,
             edge_node_number=self._edge_num,
             ec_computing_costs=ec_computing_costs,
+            maximum_ec_computing_costs=self._maximum_ec_computing_costs,
             i2i_transmission_costs=i2i_transmission_costs,
+            maximum_i2i_transmission_costs=self._maximum_i2i_transmission_costs,
             i2c_transmission_costs=i2c_transmission_costs,
+            maximum_i2c_transmission_costs=self._maximum_i2c_transmission_costs,
             cc_computing_cost=cc_computing_cost,
+            maximum_cc_computing_cost=self._maximum_cc_computing_cost,
         )
         
         return total_cost
