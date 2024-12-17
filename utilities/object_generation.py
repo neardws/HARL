@@ -63,6 +63,8 @@ def generate_vehicles(
     min_task_arrival_rate: float,           # tasks/s
     max_task_arrival_rate: float,           # tasks/s
     task_num: int,
+    #add task_ids_rate
+    task_ids_rate: float,
     distribution: str,
 ) -> tuple[float, float, float, float, List[vehicle]]:
 
@@ -94,6 +96,7 @@ def generate_vehicles(
                     communication_range=communication_range,
                     task_arrival_rate=random.uniform(min_task_arrival_rate, max_task_arrival_rate),
                     task_num=task_num,
+                    task_ids_rate=task_ids_rate,
                 )
             )
         return min_map_x, max_map_x, min_map_y, max_map_y, vehicles
