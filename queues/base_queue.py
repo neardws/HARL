@@ -10,6 +10,11 @@ class baseQueue:
         self._inputs = [0] * self._time_slot_num
         self._outputs = [0] * self._time_slot_num
 
+    def reset(self):
+        self._queue = [0] * self._time_slot_num
+        self._inputs = [0] * self._time_slot_num
+        self._outputs = [0] * self._time_slot_num
+    
     def update(
         self,
         input: float,
