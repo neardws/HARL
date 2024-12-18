@@ -93,6 +93,9 @@ class VECEnv:
         self._white_gaussian_noise: int = self.args["white_gaussian_noise"]
         self._path_loss_exponent: int = self.args["path_loss_exponent"]
         
+        
+        self._maximum_server_vehicle_num = ... # TODO TBD
+        
         # if "task_seeds" in self.args:
         #     self._task_seeds: List = self.args["task_seeds"]
         # else:
@@ -176,8 +179,6 @@ class VECEnv:
         self._maximum_task_data_size, self._maximum_task_required_cycles = self.obtain_maximum_task_data_size_and_required_cycles_of_vehicles(
             vehicles=self._vehicles,
         )
-        
-
         
         self._edge_nodes : List[edge_node] = generate_edge_nodes(
             edge_num=self._edge_num,
@@ -295,8 +296,18 @@ class VECEnv:
         self.n_agents : int = self._client_vehicle_num * 2 + self._edge_num + 1
         self.state_space = self.generate_state_space()
         self.share_observation_space = self.repeat(self.state_space)
+        
+        self._client_vehicle_observation, self._client_vehicle_observation_2, self._server_vehicle_observation, \
+            self._edge_node_observation, self._cloud_observation, self._max_observation = self.init_observation_number_of_agents()
+        
         self.observation_space = self.generate_observation_space()
+        self.true_observation_space = self.generate_true_observation_space()
+        
+        self._max_action, self._client_vehicle_action, self._client_vehicle_action2, self._server_vehicle_action, \
+            self._edge_node_action, self._cloud_action = self.init_action_number_of_agents()
+        
         self.action_space = self.generate_action_space()
+        self.true_action_space = self.generate_true_action_space()
         
         # init the actual queues
         self._lc_queues = [LCQueue(
@@ -1479,41 +1490,159 @@ class VECEnv:
                                 
         return task_offloaded_at_client_vehicles, task_offloaded_at_server_vehicles, task_offloaded_at_edge_nodes, task_offloaded_at_cloud
     
+    def init_action_number_of_agents(self):
+        # task offloading decisions of client vehicles 
+        task_offloading_number = 1 + self._maximum_server_vehicle_num + self._edge_num + 1      # 1 for local, 1 for cloud
+        client_vehicle_action = task_offloading_number * self._maximum_task_generation_number_of_vehicles
+        
+        # transmission power allocation and computation resource allocation of client vehicles 
+        client_vehicle_action2 = self._maximum_task_offloaded_at_client_vehicle_number + 2
+        
+        # computation resource allocation of server vehicles
+        server_vehicle_action = self._maximum_task_offloaded_at_server_vehicle_number
+        
+        # computation resource allocation of edge nodes
+        edge_node_action = self._maximum_task_offloaded_at_edge_node_number
+        
+        # computation resource allocation of cloud
+        cloud_action = self._maximum_task_offloaded_at_cloud_number
+        
+        max_action = max(client_vehicle_action, client_vehicle_action2, server_vehicle_action, edge_node_action, cloud_action)
+        
+        return max_action, client_vehicle_action, client_vehicle_action2, server_vehicle_action, edge_node_action, cloud_action
     
     def generate_action_space(self):
         if self.n_agents != self._client_vehicle_num * 2 +self._edge_num + 1:
             raise ValueError("The number of agents is not correct.")
-        
-        task_offloading_number = 1 + self._server_vehicle_num + self._server_vehicle_num +self._edge_num + 1
-        
+                
         action_space = []
         for i in range(self.n_agents):
             if i < self._client_vehicle_num:
                 # task offloading decision
-                action_space.append(gym.spaces.multi_discrete.MultiDiscrete([task_offloading_number] * self._maximum_task_generation_number_of_vehicles))
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2:
                 # transmission power allocation and computation resource allocation
-                # need to be normalized, the sum of the elements in the first maximum_task_offloaded_at_client_vehicle_number elements should be 1
-                # wihch means the computation resource allocation cannot exceed the capacity of the client vehicle
-                # the sum of the elements in the last two elements should be 1
-                # which means the sum of the transmission power allocation should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_client_vehicle_number + 2,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_server_vehicle_number,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_edge_node_number,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
             else:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._maximum_task_offloaded_at_cloud_number,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
                 
         return action_space
     
+    
+    # TODO scale the task_offloading_decisions, the 
+    def generate_true_action_space(self):
+        if self.n_agents != self._client_vehicle_num * 2 +self._edge_num + 1:
+            raise ValueError("The number of agents is not correct.")
+                
+        action_space = []
+        for i in range(self.n_agents):
+            if i < self._client_vehicle_num:
+                # task offloading decision
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_action,), dtype=np.float32))
+            elif i < self._client_vehicle_num * 2:
+                # transmission power allocation and computation resource allocation
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_action2,), dtype=np.float32))
+            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
+                # computation resource allocation
+                # need to be normalized, the sum of the elements should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._server_vehicle_action,), dtype=np.float32))
+            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
+                # computation resource allocation
+                # need to be normalized, the sum of the elements should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._edge_node_action,), dtype=np.float32))
+            else:
+                # computation resource allocation
+                # need to be normalized, the sum of the elements should be 1
+                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._cloud_action,), dtype=np.float32))
+                
+        return action_space
+    
+    def init_observation_number_of_agents(self):
+        
+        # the observation space of the client vehicle
+        # conisits of task information (data size, CQU cycles)
+        # the queue backlog of the lc_queue
+        # the V2V connection based on the V2V distance
+        # the queue backlog of the V2V and VC queue of all server clients
+        # the V2I connection based on the V2I distance
+        # the queue backlog of the V2I, I2I, EC queue of all edge nodes
+        # the queue backlog of the I2C and CC queue of the cloud
+        client_vehicle_observation = \
+            2 * self._maximum_task_generation_number_of_vehicles + \
+            1 + \
+            self._server_vehicle_num + \
+            2 * self._server_vehicle_num + \
+            self._edge_num + \
+            3 *self._edge_num + \
+            2
+            
+        # the observation space of the client vehcile when doing the transmission power allocation and computation resource allocation
+        # consists of task information (data size, CQU cycles)
+        # the queue backlog of the lc_queue
+        # the V2V connection based on the V2V distance 
+        # the queue backlog of the V2V queue of all server clients
+        # the V2I connection based on the V2I distance
+        # the queue backlog of the V2I queue of all edge nodes
+        client_vehicle_observation_2 = \
+            2 * self._maximum_task_offloaded_at_client_vehicle_number + \
+            1 + \
+            self._server_vehicle_num + \
+            self._server_vehicle_num + \
+            self._edge_num + \
+            self._edge_num
+            
+        # the observation space of the server vehicle
+        # consists of the task information (data size, CQU cycles)
+        # the queue backlog of the VC queue
+        server_vehicle_observation = \
+            2 * self._maximum_task_offloaded_at_server_vehicle_number + \
+            1
+        # the observation space of the edge node
+        # consists of the task information (data size, CQU cycles)
+        # the queue backlog of the EC queue
+        edge_node_observation = \
+            2 * self._maximum_task_offloaded_at_edge_node_number + \
+            1
+        # the observation space of the cloud
+        # consists of the task information (data size, CQU cycles)
+        # the queue backlog of the CC queue
+        cloud_observation = \
+            2 * self._maximum_task_offloaded_at_cloud_number + \
+            1
+        
+        max_observation = max(client_vehicle_observation, client_vehicle_observation_2, server_vehicle_observation, edge_node_observation, cloud_observation)
+        
+        return client_vehicle_observation, client_vehicle_observation_2, server_vehicle_observation, edge_node_observation, cloud_observation, max_observation
+    
     def generate_observation_space(self):
+        if self.n_agents != self._client_vehicle_num * 2 +self._edge_num + 1:
+            raise ValueError("The number of agents is not correct.")
+        
+        observation_space = []
+        for i in range(self.n_agents):
+            if i < self._client_vehicle_num:
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation,), dtype=np.float32))
+            elif i < self._client_vehicle_num * 2:
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+            else:
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+        return observation_space
+    
+    def generate_true_observation_space(self):
         if self.n_agents != self._client_vehicle_num * 2 +self._edge_num + 1:
             raise ValueError("The number of agents is not correct.")
         
@@ -1521,64 +1650,15 @@ class VECEnv:
         
         for i in range(self.n_agents):
             if i < self._client_vehicle_num:
-                # the observation space of the client vehicle
-                # conisits of task information (data size, CQU cycles)
-                # the queue backlog of the lc_queue
-                # the V2V connection based on the V2V distance
-                # the queue backlog of the V2V and VC queue of all server clients
-                # the V2I connection based on the V2I distance
-                # the queue backlog of the V2I, I2I, EC queue of all edge nodes
-                # the queue backlog of the I2C and CC queue of the cloud
-                client_vehicle_observation = \
-                    2 * self._maximum_task_generation_number_of_vehicles + \
-                    1 + \
-                    self._server_vehicle_num + \
-                    2 * self._server_vehicle_num + \
-                   self._edge_num + \
-                    3 *self._edge_num + \
-                    2
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(client_vehicle_observation,), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_observation,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2:
-                # the observation space of the client vehcile when doing the transmission power allocation and computation resource allocation
-                # consists of task information (data size, CQU cycles)
-                # the queue backlog of the lc_queue
-                # the V2V connection based on the V2V distance 
-                # the queue backlog of the V2V queue of all server clients
-                # the V2I connection based on the V2I distance
-                # the queue backlog of the V2I queue of all edge nodes
-                client_vehicle_observation_2 = \
-                    2 * self._maximum_task_offloaded_at_client_vehicle_number + \
-                    1 + \
-                    self._server_vehicle_num + \
-                    self._server_vehicle_num + \
-                   self._edge_num + \
-                   self._edge_num
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(client_vehicle_observation_2, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_observation_2, ), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                # the observation space of the server vehicle
-                # consists of the task information (data size, CQU cycles)
-                # the queue backlog of the VC queue
-                server_vehicle_observation = \
-                    2 * self._maximum_task_offloaded_at_server_vehicle_number + \
-                    1
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(server_vehicle_observation, ), dtype=np.float32))
-            
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._server_vehicle_observation, ), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                # the observation space of the edge node
-                # consists of the task information (data size, CQU cycles)
-                # the queue backlog of the EC queue
-                edge_node_observation = \
-                    2 * self._maximum_task_offloaded_at_edge_node_number + \
-                    1
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(edge_node_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._edge_node_observation, ), dtype=np.float32))
             else:
-                # the observation space of the cloud
-                # consists of the task information (data size, CQU cycles)
-                # the queue backlog of the CC queue
-                cloud_observation = \
-                    2 * self._maximum_task_offloaded_at_cloud_number + \
-                    1
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(cloud_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._cloud_observation, ), dtype=np.float32))
         return observation_space
     
     def generate_state_space(self):
