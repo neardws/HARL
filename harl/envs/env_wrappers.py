@@ -275,7 +275,7 @@ class ShareSubprocVecEnv(ShareVecEnv):
             remote.send(("reset", None))
         results = [remote.recv() for remote in self.remotes]
         obs, share_obs, available_actions = zip(*results)
-        
+        # TODO: the heterogeneous case is not handled here, need to process the obs, actions in VECEnv, refer to the issue https://github.com/PKU-MARL/HARL/issues/14
         return np.stack(obs), np.stack(share_obs), np.stack(available_actions)
 
     def reset_task(self):
