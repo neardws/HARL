@@ -1,7 +1,8 @@
 import gym
 import copy
 import numpy as np
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from harl.utils.models_tools import init_device
 from harl.common.valuenorm import ValueNorm
 from utilities.noma import obtain_channel_gains_between_client_vehicle_and_server_vehicles, obtain_channel_gains_between_vehicles_and_edge_nodes
 from utilities.wired_bandwidth import get_wired_bandwidth_between_edge_node_and_other_edge_nodes
@@ -33,6 +34,8 @@ class VECEnv:
     def __init__(self, args):
         
         self.args = copy.deepcopy(args)
+        
+        self.cur_step = 0
 
         self._slot_length: int = self.args["slot_length"]
         
@@ -89,47 +92,45 @@ class VECEnv:
         self._V2I_bandwidth: float = self.args["V2I_bandwidth"]
         self._white_gaussian_noise: int = self.args["white_gaussian_noise"]
         self._path_loss_exponent: int = self.args["path_loss_exponent"]
-        if "task_seeds" in self.args:
-            self._task_seeds: list = self.args["task_seeds"]
-        else:
-            self._task_seeds = []
-        if "vehicle_seeds" in self.args:
-            self._vehicle_seeds: list = self.args["vehicle_seeds"]
-        else:
-            self._vehicle_seeds = []
-        if "edge_seeds" in self.args:
-            self._edge_seeds: list = self.args["edge_seeds"]
-        else:
-            self._edge_seeds = []
-        if "cloud_seed" in self.args:
-            self._cloud_seed: int = self.args["cloud_seed"]
-        else:
-            self._cloud_seed = 0
+        
+        # if "task_seeds" in self.args:
+        #     self._task_seeds: List = self.args["task_seeds"]
+        # else:
+        self._task_seeds = [1 for _ in range(self._task_num)]
+
+        # if "vehicle_seeds" in self.args:
+        #     self._vehicle_seeds: list = self.args["vehicle_seeds"]
+        # else:
+        self._vehicle_seeds = [1 for _ in range(self._vehicle_num)]
+        # if "edge_seeds" in self.args:
+        #     self._edge_seeds: list = self.args["edge_seeds"]
+        # else:
+        self._edge_seeds = [1 for _ in range(self._edge_num)]
+        # if "cloud_seed" in self.args:
+        #     self._cloud_seed: int = self.args["cloud_seed"]
+        # else:
+        self._cloud_seed = 0
         
         self._penalty_weight = self.args["penalty_weight"]
         
-        if "maximum_task_offloaded_at_client_vehicle_number" in self.args:
-            self._maximum_task_offloaded_at_client_vehicle_number : int = self.args["maximum_task_offloaded_at_client_vehicle_number"]
-        else:
-            self._maximum_task_offloaded_at_client_vehicle_number = 1
-        if "maximum_task_offloaded_at_server_vehicle_number" in self.args:
-            self._maximum_task_offloaded_at_server_vehicle_number : int = self.args["maximum_task_offloaded_at_server_vehicle_number"]
-        else:
-            self._maximum_task_offloaded_at_server_vehicle_number = 1
-        if "maximum_task_offloaded_at_edge_node_number" in self.args:
-            self._maximum_task_offloaded_at_edge_node_number : int = self.args["maximum_task_offloaded_at_edge_node_number"]
-        else:
-            self._maximum_task_offloaded_at_edge_node_number = 1
-        if "maximum_task_offloaded_at_cloud_number" in self.args:
-            self._maximum_task_offloaded_at_cloud_number : int = self.args["maximum_task_offloaded_at_cloud_number"]
-        else:
-            self._maximum_task_offloaded_at_cloud_number = 1
+        # if "maximum_task_offloaded_at_client_vehicle_number" in self.args:
+        #     self._maximum_task_offloaded_at_client_vehicle_number : int = self.args["maximum_task_offloaded_at_client_vehicle_number"]
+        # else:
+        self._maximum_task_offloaded_at_client_vehicle_number = 10
+        # if "maximum_task_offloaded_at_server_vehicle_number" in self.args:
+        #     self._maximum_task_offloaded_at_server_vehicle_number : int = self.args["maximum_task_offloaded_at_server_vehicle_number"]
+        # else:
+        self._maximum_task_offloaded_at_server_vehicle_number = 20
+        # if "maximum_task_offloaded_at_edge_node_number" in self.args:
+        #     self._maximum_task_offloaded_at_edge_node_number : int = self.args["maximum_task_offloaded_at_edge_node_number"]
+        # else:
+        self._maximum_task_offloaded_at_edge_node_number = 30
+        # if "maximum_task_offloaded_at_cloud_number" in self.args:
+        #     self._maximum_task_offloaded_at_cloud_number : int = self.args["maximum_task_offloaded_at_cloud_number"]
+        # else:
+        self._maximum_task_offloaded_at_cloud_number = 40
         
-        self.n_agents : int = self._client_vehicle_num * 2 + self._edge_num + 1
-        self.state_space = self.generate_state_space()
-        self.share_observation_space = self.repeat(self.state_space)
-        self.observation_space = self.generate_observation_space()
-        self.action_space = self.generate_action_space()
+        self.device = init_device(self.args["device"])
         
         self.value_normalizer = ValueNorm(1, device=self.device)
         
@@ -169,24 +170,14 @@ class VECEnv:
             task_num=self._task_num,
             task_ids_rate=self._task_ids_rate,
             distribution=self._vehicle_distribution,
+            tasks=self._tasks,
         )
         
         self._maximum_task_data_size, self._maximum_task_required_cycles = self.obtain_maximum_task_data_size_and_required_cycles_of_vehicles(
             vehicles=self._vehicles,
         )
         
-        # init the maximum costs
-        self._maximum_v2v_transmission_costs = np.zeros((self._client_vehicle_num, ))
-        self._maximum_v2i_transmission_costs = np.zeros((self._client_vehicle_num, ))
-        self._maximum_lc_computing_costs = np.zeros((self._client_vehicle_num, ))
-        
-        self._maximum_vc_computing_costs = np.zeros((self._server_vehicle_num, ))
-        
-        self._maximum_ec_computing_costs = np.zeros((self._edge_num, ))
-        self._maximum_i2i_transmission_costs = np.zeros((self._edge_num, ))
-        self._maximum_i2c_transmission_costs = np.zeros((self._edge_num, ))
-        
-        self._maximum_cc_computing_cost = 0.0
+
         
         self._edge_nodes : List[edge_node] = generate_edge_nodes(
             edge_num=self._edge_num,
@@ -206,6 +197,10 @@ class VECEnv:
         
         self._cloud : cloud_server = generate_cloud(
             cloud_seed=self._cloud_seed,
+            min_map_x=min_map_x,
+            max_map_x=max_map_x,
+            min_map_y=min_map_y,
+            max_map_y=max_map_y,
             computing_capability=self._cloud_computing_capability,
             storage_capability=self._cloud_storage_capability,
             min_wired_bandwidth=self._min_I2C_wired_bandwidth,
@@ -265,14 +260,14 @@ class VECEnv:
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
             server_vehicles=self._server_vehicles,
-            path_loss_exponent=self._env_profile.get_path_loss_exponent(),
+            path_loss_exponent=self._path_loss_exponent,
         )
                 
         self._channel_gains_between_client_vehicle_and_edge_nodes = obtain_channel_gains_between_vehicles_and_edge_nodes(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_edge_nodes,
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
-            path_loss_exponent=self._env_profile.get_path_loss_exponent(),
+            path_loss_exponent=self._path_loss_exponent,
         )
         
         self._distance_matrix_between_edge_nodes : np.ndarray = get_distance_matrix_between_edge_nodes(
@@ -281,14 +276,34 @@ class VECEnv:
         
         self._distance_matrix_between_edge_nodes_and_the_cloud : np.ndarray = get_distance_matrix_between_edge_nodes_and_the_cloud(
             edge_nodes=self._edge_nodes,
-            cloud=self._cloud,
+            cloud_server=self._cloud,
         )
+        
+        # init the maximum costs
+        self._maximum_v2v_transmission_costs = np.zeros((self._client_vehicle_num, ))
+        self._maximum_v2i_transmission_costs = np.zeros((self._client_vehicle_num, ))
+        self._maximum_lc_computing_costs = np.zeros((self._client_vehicle_num, ))
+        
+        self._maximum_vc_computing_costs = np.zeros((self._server_vehicle_num, ))
+        
+        self._maximum_ec_computing_costs = np.zeros((self._edge_num, ))
+        self._maximum_i2i_transmission_costs = np.zeros((self._edge_num, ))
+        self._maximum_i2c_transmission_costs = np.zeros((self._edge_num, ))
+        
+        self._maximum_cc_computing_cost = 0.0
+        
+        self.n_agents : int = self._client_vehicle_num * 2 + self._edge_num + 1
+        self.state_space = self.generate_state_space()
+        self.share_observation_space = self.repeat(self.state_space)
+        self.observation_space = self.generate_observation_space()
+        self.action_space = self.generate_action_space()
         
         # init the actual queues
         self._lc_queues = [LCQueue(
                 time_slot_num=self._slot_length,
                 name="lc_queue_" + str(_),
                 client_vehicle_index=_,
+                maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
             ) for _ in range(self._client_vehicle_num)]
         
         self._v2v_queues = [V2VQueue(
@@ -394,7 +409,7 @@ class VECEnv:
             time_slot_num=self._slot_length,
             name="lc_ressource_queue_" + str(_),
             client_vehicle_index=_,
-            maximum_task_generation_number=self._maximum_task_generation_number_of_vehicles,
+            client_vehicle_computing_capability=self._client_vehicles[_].get_computing_capability(),
         ) for _ in range(self._client_vehicle_num)]
         
         self._vehicle_computing_resource_queues = [vc_ressource_queue(
@@ -402,7 +417,7 @@ class VECEnv:
             name="vc_ressource_queue_" + str(_),
             server_vehicle_index=_,
             server_vehicle_computing_capability=self._server_vehicles[_].get_computing_capability(),
-        ) for _ in range(self._client_vehicle_num)]
+        ) for _ in range(self._server_vehicle_num)]
             
         self._edge_computing_resource_queues = [ec_ressource_queue(
             time_slot_num=self._slot_length,
@@ -424,9 +439,9 @@ class VECEnv:
             tasks = vehicle.get_tasks()
             for task in tasks:
                 if task[2].get_input_data_size() > maximum_task_data_size:
-                    maximum_task_data_size = task.get_input_data_size()
-                if task[2].get_required_cycles() > maximum_task_required_cycles:
-                    maximum_task_required_cycles = task.get_required_cycles()
+                    maximum_task_data_size = task[2].get_input_data_size()
+                if task[2].get_requested_computing_cycles() > maximum_task_required_cycles:
+                    maximum_task_required_cycles = task[2].get_requested_computing_cycles()
         return maximum_task_data_size, maximum_task_required_cycles
 
     def step(self, actions):
@@ -496,14 +511,14 @@ class VECEnv:
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
             server_vehicles=self._server_vehicles,
-            path_loss_exponent=self._env_profile.get_path_loss_exponent(),
+            path_loss_exponent=self._path_loss_exponent,
         )
                 
         self._channel_gains_between_client_vehicle_and_edge_nodes = obtain_channel_gains_between_vehicles_and_edge_nodes(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_edge_nodes,
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
-            path_loss_exponent=self._env_profile.get_path_loss_exponent(),
+            path_loss_exponent=self._path_loss_exponent,
         )
         
         dones = [False for _ in range(self.n_agents)]
@@ -564,20 +579,28 @@ class VECEnv:
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
             server_vehicles=self._server_vehicles,
-            path_loss_exponent=self._env_profile.get_path_loss_exponent(),
+            path_loss_exponent=self._path_loss_exponent,
         )
                 
         self._channel_gains_between_client_vehicle_and_edge_nodes = obtain_channel_gains_between_vehicles_and_edge_nodes(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_edge_nodes,
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
-            path_loss_exponent=self._env_profile.get_path_loss_exponent(),
+            path_loss_exponent=self._path_loss_exponent,
         )
                 
         self._task_offloaded_at_client_vehicles = {}
         self._task_offloaded_at_server_vehicles = {}
         self._task_offloaded_at_edge_nodes = {}
         self._task_offloaded_at_cloud = {}
+        
+        for i in range(self._client_vehicle_num):
+            self._task_offloaded_at_client_vehicles["client_vehicle_" + str(i)] = []
+        for i in range(self._server_vehicle_num):
+            self._task_offloaded_at_server_vehicles["server_vehicle_" + str(i)] = []
+        for i in range(self._edge_num):
+            self._task_offloaded_at_edge_nodes["edge_node_" + str(i)] = []
+        self._task_offloaded_at_cloud["cloud"] = []
         
         for _ in range(self._client_vehicle_num):
             self._lc_queues[_].reset()
@@ -1016,11 +1039,12 @@ class VECEnv:
         for agent_id in range(self.n_agents):
             if agent_id < self._client_vehicle_num:
                 # 客户端车辆的观察
+                client_vehicle_index = agent_id
                 observation = np.zeros(self.observation_space[agent_id].shape)
                 index = 0
                 
                 # 任务信息
-                tasks_of_vehicle = self._client_vehicles[agent_id].get_tasks_by_time(now=self.cur_step)
+                tasks_of_vehicle = self._client_vehicles[client_vehicle_index].get_tasks_by_time(now=self.cur_step)
                 min_num = min(len(tasks_of_vehicle), self._maximum_task_generation_number_of_vehicles)
                 for task in range(min_num):
                     task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
@@ -1037,16 +1061,16 @@ class VECEnv:
                     index += 1
 
                 # 客户端队列累积
-                lc_backlog = self._lc_queue_backlogs[agent_id][self.cur_step]
-                if self._maximum_lc_queue_length[agent_id] != 0:
-                    observation[index] = lc_backlog / self._maximum_lc_queue_length[agent_id]
+                lc_backlog = self._lc_queue_backlogs[client_vehicle_index][self.cur_step]
+                if self._maximum_lc_queue_length[client_vehicle_index] != 0:
+                    observation[index] = lc_backlog / self._maximum_lc_queue_length[client_vehicle_index]
                 else:
                     observation[index] = 1
                 index += 1
 
                 # V2V 连接信息
                 for server in range(self._server_vehicle_num):
-                    v2v_connection = self._vehicles_under_V2V_communication_range[agent_id][server]
+                    v2v_connection = self._vehicles_under_V2V_communication_range[client_vehicle_index][server]
                     observation[index] = v2v_connection
                     index += 1
                     
@@ -1067,7 +1091,7 @@ class VECEnv:
                 
                 # V2I 连接信息
                 for edge in range(self._edge_num):
-                    v2i_connection = self._vehicles_under_V2I_communication_range[agent_id][edge]
+                    v2i_connection = self._vehicles_under_V2I_communication_range[client_vehicle_index][edge]
                     observation[index] = v2i_connection
                     index += 1
                 
@@ -1093,13 +1117,13 @@ class VECEnv:
                     index += 1
 
                 # 云的队列累积
-                i2c_backlog = self._i2c_queue_backlogs[0][self.cur_step]
+                i2c_backlog = self._i2c_queue_backlogs[self.cur_step]
                 if self._maximum_i2c_queue_length != 0:
                     observation[index] = i2c_backlog / self._maximum_i2c_queue_length
                 else:
                     observation[index] = 1
                 index += 1
-                cc_backlog = self._cc_queue_backlogs[0][self.cur_step]
+                cc_backlog = self._cc_queue_backlogs[self.cur_step]
                 if self._maximum_cc_queue_length != 0:
                     observation[index] = cc_backlog / self._maximum_cc_queue_length
                 else:
@@ -1133,16 +1157,16 @@ class VECEnv:
                     index += 1
 
                 # 客户端队列累积
-                lc_backlog = self._lc_queue_backlogs[agent_id][self.cur_step]
-                if self._maximum_lc_queue_length[agent_id] != 0:
-                    observation[index] = lc_backlog / self._maximum_lc_queue_length[agent_id]
+                lc_backlog = self._lc_queue_backlogs[vehicle_index][self.cur_step]
+                if self._maximum_lc_queue_length[vehicle_index] != 0:
+                    observation[index] = lc_backlog / self._maximum_lc_queue_length[vehicle_index]
                 else:
                     observation[index] = 1
                 index += 1
 
                 # V2V 连接信息
                 for server in range(self._server_vehicle_num):
-                    v2v_connection = self._vehicles_under_V2V_communication_range[agent_id][server]
+                    v2v_connection = self._vehicles_under_V2V_communication_range[vehicle_index][server]
                     observation[index] = v2v_connection
                     index += 1
                     
@@ -1157,7 +1181,7 @@ class VECEnv:
                 
                 # V2I 连接信息
                 for edge in range(self._edge_num):
-                    v2i_connection = self._vehicles_under_V2I_communication_range[agent_id][edge]
+                    v2i_connection = self._vehicles_under_V2I_communication_range[vehicle_index][edge]
                     observation[index] = v2i_connection
                     index += 1
                 
@@ -1194,9 +1218,9 @@ class VECEnv:
                     observation[index] = 0
                     index += 1
 
-                backlog = self._vc_queue_backlogs[agent_id - self._client_vehicle_num * 2][self.cur_step]
-                if self._maximum_vc_queue_length[agent_id - self._client_vehicle_num * 2] != 0:
-                    observation[index] = backlog / self._maximum_vc_queue_length[agent_id - self._client_vehicle_num * 2]
+                backlog = self._vc_queue_backlogs[server_vehicle_index][self.cur_step]
+                if self._maximum_vc_queue_length[server_vehicle_index] != 0:
+                    observation[index] = backlog / self._maximum_vc_queue_length[server_vehicle_index]
                 else:
                     observation[index] = 1
                 index += 1
@@ -1253,7 +1277,7 @@ class VECEnv:
                     observation[index] = 0
                     index += 1
                     
-                cc_backlog = self._cc_queue_backlogs[0][self.cur_step]
+                cc_backlog = self._cc_queue_backlogs[self.cur_step]
                 if self._maximum_cc_queue_length != 0:
                     observation[index] = cc_backlog / self._maximum_cc_queue_length
                 else:
@@ -1343,13 +1367,13 @@ class VECEnv:
             index += 1
 
         # 7. 云的队列累积（I2C 和 CC）
-        i2c_backlog = self._i2c_queue_backlogs[0][self.cur_step]  # 获取云的 I2C 队列
+        i2c_backlog = self._i2c_queue_backlogs[self.cur_step]  # 获取云的 I2C 队列
         if self._maximum_i2c_queue_length != 0:
             state[index] = i2c_backlog / self._maximum_i2c_queue_length
         else:
             state[index] = 1
         index += 1
-        cc_backlog = self._cc_queue_backlogs[0][self.cur_step]  # 获取云的 CC 队列
+        cc_backlog = self._cc_queue_backlogs[self.cur_step]  # 获取云的 CC 队列
         if self._maximum_cc_queue_length != 0:
             state[index] = cc_backlog / self._maximum_cc_queue_length
         else:
@@ -1414,7 +1438,7 @@ class VECEnv:
         vehicles_under_V2V_communication_range,
         vehicles_under_V2I_communication_range,
         now: int,
-    ):
+    ) -> Tuple[Dict, Dict, Dict, Dict]:
         task_offloaded_at_client_vehicles = {}
         task_offloaded_at_server_vehicles = {}
         task_offloaded_at_edge_nodes = {}

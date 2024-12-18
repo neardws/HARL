@@ -89,9 +89,9 @@ class OnPolicyBaseRunner:
             )
         self.num_agents = get_num_agents(args["env"], env_args, self.envs)
 
-        print("share_observation_space: ", self.envs.share_observation_space)
-        print("observation_space: ", self.envs.observation_space)
-        print("action_space: ", self.envs.action_space)
+        # print("share_observation_space: ", self.envs.share_observation_space)
+        # print("observation_space: ", self.envs.observation_space)
+        # print("action_space: ", self.envs.action_space)
 
         # actor     
         if self.share_param:    # is related with the heterogeneity of agents

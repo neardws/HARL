@@ -275,6 +275,7 @@ class ShareSubprocVecEnv(ShareVecEnv):
             remote.send(("reset", None))
         results = [remote.recv() for remote in self.remotes]
         obs, share_obs, available_actions = zip(*results)
+        
         return np.stack(obs), np.stack(share_obs), np.stack(available_actions)
 
     def reset_task(self):

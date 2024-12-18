@@ -1,6 +1,5 @@
 from typing import Dict, List
 import numpy as np
-from objects.task_object import task
 from objects.vehicle_object import vehicle
 
 def compute_v2v_transmission_cost(

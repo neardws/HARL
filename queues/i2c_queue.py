@@ -59,7 +59,6 @@ class I2CQueue(baseQueue):
                                 vehicles_under_V2I_communication_range=vehicles_under_V2I_communication_range,
                                 now=now,
                                 client_vehicle_index=i,
-                                edge_node_index=e,
                             )
                         input += transmission_rate 
         return input
@@ -117,7 +116,6 @@ class I2CQueue(baseQueue):
                     if min_num > 0:
                         for j in range(min_num):
                             if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Cloud":
-                                task_id = tasks_of_vehicle_i[j][1]
                                 task_data_size += tasks_of_vehicle_i[j][2].get_input_data_size()
             transmission_rate = self._I2C_transmission_rate
             propagation_speed = self._I2C_propagation_speed

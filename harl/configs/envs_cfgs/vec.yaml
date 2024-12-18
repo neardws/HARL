@@ -1,3 +1,10 @@
+device:
+  # whether to use CUDA
+  cuda: False
+  torch_threads: 4
+
+state_type: FP
+
 slot_length: 100
 task_num: 100
 task_distribution: "uniform"

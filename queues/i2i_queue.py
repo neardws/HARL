@@ -63,7 +63,6 @@ class I2IQueue(baseQueue):
                                     vehicles_under_V2I_communication_range=vehicles_under_V2I_communication_range,
                                     now=now,
                                     client_vehicle_index=i,
-                                    edge_node_index=e,
                                 )
                             input += transmission_rate 
         return input

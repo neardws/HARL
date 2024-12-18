@@ -1,5 +1,5 @@
 import random
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from objects.mobility_object import mobility
 from objects.vehicle_object import vehicle
 from objects.edge_node_object import edge_node
@@ -9,7 +9,7 @@ from utilities.wired_bandwidth import get_wired_bandwidth_between_edge_nodes_and
 
 def generate_task_set(
     task_num: int,
-    task_seeds: list[int],
+    task_seeds: List[int],
     distribution: str,
     min_input_data_size: float,     # in MB
     max_input_data_size: float,     # in MB
@@ -44,7 +44,7 @@ def generate_task_set(
     
 def generate_vehicles(
     vehicle_num: int,
-    vehicle_seeds: list[int],
+    vehicle_seeds: List[int],
     slot_length: int,
     file_name_key: str,
     slection_way: str,
@@ -60,10 +60,11 @@ def generate_vehicles(
     communication_range: float,             # meters
     min_task_arrival_rate: float,           # tasks/s
     max_task_arrival_rate: float,           # tasks/s
+    tasks,
     task_num: int,
     task_ids_rate: float,
     distribution: str,
-) -> tuple[float, float, float, float, List[vehicle]]:
+) -> Tuple[float, float, float, float, List[vehicle]]:
 
     trajectoriesProcessing = TrajectoriesProcessing(
         file_name_key=file_name_key,
@@ -97,9 +98,9 @@ def generate_vehicles(
                     min_task_arrival_rate=min_task_arrival_rate,
                     max_task_arrival_rate=max_task_arrival_rate,
                     
-                    task_arrival_rate=random.uniform(min_task_arrival_rate, max_task_arrival_rate),
                     task_num=task_num,
                     task_ids_rate=task_ids_rate,
+                    tasks=tasks,
                 )
             )
         return min_map_x, max_map_x, min_map_y, max_map_y, vehicles
@@ -109,7 +110,7 @@ def generate_vehicles(
     
 def generate_edge_nodes(
     edge_num: int,
-    edge_seeds: list[int],
+    edge_seeds: List[int],
     min_map_x: float,
     max_map_x: float,
     min_map_y: float,
@@ -160,6 +161,10 @@ def generate_edge_nodes(
         
 def generate_cloud(
     cloud_seed: int,
+    min_map_x: float,
+    max_map_x: float,
+    min_map_y: float,
+    max_map_y: float,
     computing_capability: float,        # GHz
     storage_capability: float,          # MB
     edge_node_num: int,
@@ -175,7 +180,15 @@ def generate_cloud(
             max_wired_bandwidth=max_wired_bandwidth,
             edge_node_num=edge_node_num,
         )
-        return cloud_server(computing_capability, storage_capability, time_slot_num, wired_bandwidths)
+        cloud_mobility = mobility(
+            x = min_map_x + (max_map_x - min_map_x) / 2, 
+            y = min_map_y + (max_map_y - min_map_y) / 2, 
+            speed = 0, 
+            acceleration = 0,
+            direction = 0,
+            time = 0
+        )
+        return cloud_server(cloud_mobility, computing_capability, storage_capability, time_slot_num, wired_bandwidths)
     else:
         raise Exception("No such distribution: " + distribution + " for cloud")
     

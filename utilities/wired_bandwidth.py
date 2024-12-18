@@ -1,5 +1,5 @@
 from typing import List
-from Objects.edge_node_object import edge_node
+from objects.edge_node_object import edge_node
 import numpy as np
 import random
 
