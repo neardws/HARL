@@ -33,6 +33,7 @@ class delayQueue(baseQueue):
                         input += self.compute_total_queue_length(
                             client_vehicle_index,
                             self._task_index,
+                            now,
                             task_offloading_decisions,
                             lc_queue_backlogs,
                             v2v_queue_backlogs,
@@ -49,6 +50,7 @@ class delayQueue(baseQueue):
         self,
         client_vehicle_index: int,
         task_index: int,
+        now: int,
         task_offloading_decisions,
         lc_queue_backlogs,
         v2v_queue_backlogs,
@@ -63,15 +65,15 @@ class delayQueue(baseQueue):
             return 0.0
         task_offloading = task_offloading_decisions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(task_index)]
         if task_offloading == "Local":
-            return lc_queue_backlogs[client_vehicle_index]
+            return lc_queue_backlogs[client_vehicle_index][now]
         elif task_offloading.startswith("Server Vehicle "):
             server_vehicle_index = int(task_offloading.split(" ")[-1])
-            return v2v_queue_backlogs[server_vehicle_index] + vc_queue_backlogs[server_vehicle_index]
+            return v2v_queue_backlogs[server_vehicle_index][now] + vc_queue_backlogs[server_vehicle_index][now]
         elif task_offloading.startswith("Edge Node "):
             edge_node_index = int(task_offloading.split(" ")[-1])
-            return max(v2i_queue_backlogs[edge_node_index], i2i_queue_backlogs[edge_node_index]) + ec_queue_backlogs[edge_node_index]
+            return max(v2i_queue_backlogs[edge_node_index][now], i2i_queue_backlogs[edge_node_index][now]) + ec_queue_backlogs[edge_node_index][now]
         elif task_offloading == "Cloud":
-            return i2c_queue_backlogs[client_vehicle_index] + cc_queue_backlogs[client_vehicle_index]
+            return i2c_queue_backlogs[now] + cc_queue_backlogs[now]
         else:
             raise ValueError("Invalid task offloading decision")
         

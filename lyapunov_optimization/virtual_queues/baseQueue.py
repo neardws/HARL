@@ -26,7 +26,17 @@ class baseQueue:
         self._inputs[time_slot] = input
         self._outputs[time_slot] = output
         if time_slot < self._time_slot_num - 1:
-            self._queue[time_slot + 1] = self.max_0(self._queue[time_slot] + input - output)
+            try:
+                self._queue[time_slot + 1] = self.max_0(float(self._queue[time_slot] + input - output))
+            except TypeError:
+                print("input: ", input)
+                print("output: ", output)
+                print("time_slot: ", time_slot)
+                print("queue: ", self._queue[time_slot])
+                print("queue: ", self._queue[time_slot] + input)
+                print("queue: ", self._queue[time_slot] + input - output)
+                print("queue: ", self.max_0(float(self._queue[time_slot] + input - output)))
+                raise
         
     def max_0(self, x):
         return max(0, x)

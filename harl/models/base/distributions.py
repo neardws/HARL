@@ -86,4 +86,6 @@ class DiagGaussian(nn.Module):
     def forward(self, x, available_actions=None):
         action_mean = self.fc_mean(x)
         action_std = torch.sigmoid(self.log_std / self.std_x_coef) * self.std_y_coef
+        # print("action_mean", action_mean)
+        # print("action_std", action_std)
         return FixedNormal(action_mean, action_std)

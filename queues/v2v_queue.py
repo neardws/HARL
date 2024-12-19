@@ -1,5 +1,4 @@
 from queues.base_queue import baseQueue
-from objects.task_object import task
 from objects.vehicle_object import vehicle
 from typing import List, Dict
 import numpy as np
@@ -25,7 +24,7 @@ class V2VQueue(baseQueue):
         self._white_gaussian_noise = white_gaussian_noise
         self._V2V_bandwidth = V2V_bandwidth
         self._channel_gains_between_client_vehicle_and_server_vehicles = channel_gains_between_client_vehicle_and_server_vehicles
-        super(V2VQueue, self).__init__(time_slot_num=time_slot_num, name=name)
+        super().__init__(time_slot_num, name)
 
     def compute_input(
         self,
@@ -77,7 +76,7 @@ class V2VQueue(baseQueue):
                         client_vehicle_index=i,
                         server_vehicle_index=self._server_vehicle_index,
                     )
-                    outpu += transmission_rate 
+                    output += transmission_rate 
         return output
                     
     def obtain_transmission_rate(

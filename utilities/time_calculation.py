@@ -40,9 +40,10 @@ def compute_transmission_rate(SINR, bandwidth) -> float:
     :param bandwidth:
     :return: transmission rate measure by bit/s
     """
-    return float(cover_MHz_to_Hz(bandwidth) * np.log2(1 + SINR))
-
-
+    # 确保 SINR 的值安全，不小于 0
+    SINR_safe = np.clip(SINR, 0, None)  # 将小于 0 的值调整为 0
+    result = float(cover_MHz_to_Hz(bandwidth) * np.log2(1 + SINR_safe))
+    return result
 
 def obtain_wired_transmission_time(
     transmission_rate: float,

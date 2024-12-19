@@ -65,9 +65,11 @@ model:
   data_chunk_length: 10
   # optimizer parameters
   # actor learning rate
-  lr: 0.0005
+  lr: 0.0001
+  # lr: 0.0005
   # critic learning rate
-  critic_lr: 0.0005
+  critic_lr: 0.0001
+  # critic_lr: 0.0005
   # eps in Adam
   opti_eps: 0.00001
   # weight_decay in Adam

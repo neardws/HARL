@@ -60,7 +60,7 @@ class I2CQueue(baseQueue):
                                 now=now,
                                 client_vehicle_index=i,
                             )
-                        input += transmission_rate 
+                            input += transmission_rate 
         return input
     
     def obtain_transmission_rate(
@@ -87,12 +87,12 @@ class I2CQueue(baseQueue):
                             break
                     if tag:
                         interference += np.abs(self._channel_gains_between_client_vehicle_and_edge_nodes[i][edge_node_index]) ** 2 * \
-                            self._client_vehicles[i].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(i)]
+                            self._client_vehicles[i].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(i)][1]
         
         sinr = compute_V2I_SINR(
             white_gaussian_noise=self._white_gaussian_noise,
             channel_gain=self._channel_gains_between_client_vehicle_and_edge_nodes[client_vehicle_index][edge_node_index],
-            transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)],
+            transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)][1],
             interference=interference,
         )
         

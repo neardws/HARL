@@ -295,7 +295,7 @@ class OnPolicyBaseRunner:
         action_collector = []
         action_log_prob_collector = []
         rnn_state_collector = []
-        for agent_id in range(self.num_agents):
+        for agent_id in range(self.num_agents):    
             action, action_log_prob, rnn_state = self.actor[agent_id].get_actions(
                 self.actor_buffer[agent_id].obs[step],
                 self.actor_buffer[agent_id].rnn_states[step],

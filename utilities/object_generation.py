@@ -60,6 +60,7 @@ def generate_vehicles(
     communication_range: float,             # meters
     min_task_arrival_rate: float,           # tasks/s
     max_task_arrival_rate: float,           # tasks/s
+    server_vehicle_probability: float,
     tasks,
     task_num: int,
     task_ids_rate: float,
@@ -97,6 +98,8 @@ def generate_vehicles(
                     
                     min_task_arrival_rate=min_task_arrival_rate,
                     max_task_arrival_rate=max_task_arrival_rate,
+                    
+                    server_vehicle_probability = server_vehicle_probability,
                     
                     task_num=task_num,
                     task_ids_rate=task_ids_rate,

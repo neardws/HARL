@@ -26,6 +26,7 @@ class vehicle(object):
         tasks,
         min_task_arrival_rate: float,
         max_task_arrival_rate: float,
+        server_vehicle_probability: float,
         task_num: int,
         task_ids_rate: float,
     ) -> None:
@@ -43,10 +44,16 @@ class vehicle(object):
         self._random_seed : int = random_seed
         random.seed(self._random_seed)
         self._task_ids_rate = task_ids_rate
+        self._server_vehicle_probability = server_vehicle_probability
         self._task_ids = self.generate_task_ids(rate=self._task_ids_rate)
-        self._task_ids_num = len(self._task_ids)
-        self._task_arrival_rate = self.generate_task_arrival_rates()
-        self._tasks : List[Tuple] = self.generate_task(tasks)
+        if self._task_ids is None:
+            self._task_ids_num = 0
+            self._task_arrival_rate = []
+            self._tasks = []
+        else:
+            self._task_ids_num = len(self._task_ids)
+            self._task_arrival_rate = self.generate_task_arrival_rates()
+            self._tasks : List[Tuple] = self.generate_task(tasks)
     
     def get_time_slot_num(self) -> int:
         return self._time_slot_num
@@ -81,6 +88,8 @@ class vehicle(object):
         return self._tasks
     
     def get_tasks_by_time(self, now : int) -> List[Tuple]:
+        if self._task_ids_num == 0:
+            return []
         return [task for task in self._tasks if task[0] == now]
     
     def set_consumed_computing_capability(self, consumed_computing_capability: float, now: int, duration: int) -> None:
@@ -106,6 +115,8 @@ class vehicle(object):
         return None
     
     def generate_task_ids(self, rate=0.1) -> List[int]:
+        if random.random() < self._server_vehicle_probability:
+            return None
         return random.choices(range(self._task_num), k=int(self._task_num * rate))
     
     def generate_task_arrival_rates(self) -> List[float]:
