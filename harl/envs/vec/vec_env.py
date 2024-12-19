@@ -1139,7 +1139,11 @@ class VECEnv:
                     observation[index] = cc_backlog / self._maximum_cc_queue_length
                 else:
                     observation[index] = 1
-                observation[index] = cc_backlog
+                
+                if index != self._max_observation - 1:
+                    # padding the observation
+                    for _ in range(index, self._max_observation):
+                        observation[_] = 0
                 
                 observations.append(observation)
 
@@ -1204,6 +1208,12 @@ class VECEnv:
                     else:
                         observation[index] = 1
                     index += 1
+                
+                index -= 1
+                if index != self._max_observation - 1:
+                    # padding the observation
+                    for _ in range(index, self._max_observation):
+                        observation[_] = 0
 
                 observations.append(observation)
 
@@ -1234,7 +1244,11 @@ class VECEnv:
                     observation[index] = backlog / self._maximum_vc_queue_length[server_vehicle_index]
                 else:
                     observation[index] = 1
-                index += 1
+                    
+                if index != self._max_observation - 1:
+                    # padding the observation
+                    for _ in range(index, self._max_observation):
+                        observation[_] = 0
                 
                 observations.append(observation)
 
@@ -1265,7 +1279,11 @@ class VECEnv:
                     observation[index] = ec_backlog / self._maximum_ec_queue_length[edge_node_index]
                 else:
                     observation[index] = 1
-                index += 1
+                
+                if index != self._max_observation - 1:
+                    # padding the observation
+                    for _ in range(index, self._max_observation):
+                        observation[_] = 0
 
                 observations.append(observation)
 
@@ -1292,7 +1310,13 @@ class VECEnv:
                 if self._maximum_cc_queue_length != 0:
                     observation[index] = cc_backlog / self._maximum_cc_queue_length
                 else:
-                    observation[index] = 1               
+                    observation[index] = 1
+                
+                if index != self._max_observation - 1:
+                    # padding the observation
+                    for _ in range(index, self._max_observation):
+                        observation[_] = 0  
+                                     
                 observations.append(observation)
 
         return observations
@@ -1402,42 +1426,64 @@ class VECEnv:
     def close(self):
         pass
         
-    def transform_actions(self, actions):
+    def transform_actions(
+        self, 
+        actions,
+        vehicles_under_V2I_communication_range,
+    ):
         task_offloading_actions = {}
         transmission_power_allocation_actions = {}
         computation_resource_allocation_actions = {}
-        for i in range(self._n_agents):
+        
+        for i in range(self.n_agents):
+            true_action = actions[i][: self.true_action_space[i].shape[0]]
             if i < self._client_vehicle_num:
+                # Task offloading actions
+                client_vehicle_index = i
+                task_offloading_number = 1 + self._maximum_server_vehicle_num + self._edge_num + 1
                 for j in range(self._maximum_task_generation_number_of_vehicles):
-                    if actions[i][j] == 0:
+                    # each task offloading action contains the offloading destination, i.e., the task_offloading_number
+                    task_offloading_action = true_action[j * task_offloading_number: (j + 1) * task_offloading_number]
+                    max_index = np.argmax(task_offloading_action)
+                    if max_index == 0:
                         task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Local"
-                    elif actions[i][j] >= 1 and actions[i][j] <= 1 + self._server_vehicle_num:
-                        task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Server Vehicle " + str(actions[i][j] - 1)
-                    elif actions[i][j] >= 1 + self._server_vehicle_num and actions[i][j] <= 1 + self._server_vehicle_num +self._edge_num:
-                        task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Edge Node " + str(actions[i][j] - 1 - self._server_vehicle_num)
+                    elif max_index >= 1 and max_index <= self._maximum_server_vehicle_num:
+                        tag = 0
+                        flag = False
+                        for server_vehicle_index in range(self._server_vehicle_num):
+                            if vehicles_under_V2I_communication_range[client_vehicle_index][server_vehicle_index] == 1:
+                                tag += 1
+                                if max_index == tag:
+                                    flag = True
+                                    task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Server Vehicle " + str(server_vehicle_index)
+                        if not flag:
+                            task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Local"
+                    elif max_index >= 1 + self._server_vehicle_num and max_index < 1 + self._server_vehicle_num + self._edge_num:
+                        edge_node_index = max_index - 1 - self._maximum_server_vehicle_num
+                        task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Edge Node " + str(edge_node_index)   
                     else:
                         task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Cloud"
             elif i < self._client_vehicle_num * 2:
-                client_vehicle_number = i - self._client_vehicle_num
-                computation_resource_allocation = actions[i][0:self._maximum_task_offloaded_at_client_vehicle_number]
+                client_vehicle_index = i - self._client_vehicle_num
+                computation_resource_allocation = true_action[0:self._maximum_task_offloaded_at_client_vehicle_number]
                 computation_resource_allocation_normalized = self.value_normalizer.normalize(computation_resource_allocation)
-                transmission_power_allocation = actions[i][-2:]
+                transmission_power_allocation = true_action[-2:]
                 transmission_power_allocation_normalized = self.value_normalizer.normalize(transmission_power_allocation)
                 # V2V transmission power allocation + V2I transmission power allocation
-                transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_number)] = transmission_power_allocation_normalized
-                computation_resource_allocation_actions["client_vehicle_" + str(client_vehicle_number)] = computation_resource_allocation_normalized
+                transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)] = transmission_power_allocation_normalized
+                computation_resource_allocation_actions["client_vehicle_" + str(client_vehicle_index)] = computation_resource_allocation_normalized
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                server_vehicle_number = i - self._client_vehicle_num * 2
-                computation_resource_allocation = actions[i]
+                server_vehicle_index = i - self._client_vehicle_num * 2
+                computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.value_normalizer.normalize(computation_resource_allocation)
-                computation_resource_allocation_actions["server_vehicle_" + str(server_vehicle_number)] = computation_resource_allocation_normalized
+                computation_resource_allocation_actions["server_vehicle_" + str(server_vehicle_index)] = computation_resource_allocation_normalized
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                edge_node_number = i - self._client_vehicle_num * 2 - self._server_vehicle_num
-                computation_resource_allocation = actions[i]
+                edge_node_index = i - self._client_vehicle_num * 2 - self._server_vehicle_num
+                computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.value_normalizer.normalize(computation_resource_allocation)
-                computation_resource_allocation_actions["edge_node_" + str(edge_node_number)] = computation_resource_allocation_normalized
+                computation_resource_allocation_actions["edge_node_" + str(edge_node_index)] = computation_resource_allocation_normalized
             else:
-                computation_resource_allocation = actions[i]
+                computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.value_normalizer.normalize(computation_resource_allocation)
                 computation_resource_allocation_actions["cloud"] = computation_resource_allocation_normalized
         return task_offloading_actions, transmission_power_allocation_actions, computation_resource_allocation_actions
@@ -1538,8 +1584,6 @@ class VECEnv:
                 
         return action_space
     
-    
-    # TODO scale the task_offloading_decisions, the 
     def generate_true_action_space(self):
         if self.n_agents != self._client_vehicle_num * 2 +self._edge_num + 1:
             raise ValueError("The number of agents is not correct.")
