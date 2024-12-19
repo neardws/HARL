@@ -1,5 +1,3 @@
-from typing import List
-from objects.task_object import task
 from queues.base_queue import baseQueue
 
 class VCQueue(baseQueue):
@@ -26,7 +24,7 @@ class VCQueue(baseQueue):
         task_offloaded_at_server_vehicles,
     ):
         output = 0.0
-        for task, index in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(self._server_vehicle_index)]):
+        for index, task in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(self._server_vehicle_index)]):
             task_required_cycles = task["task"].get_requested_computing_cycles()
             allocated_cycles = server_vehicle_compute_capability * \
                 computation_resource_allocation_actions["server_vehicle_" + str(self._server_vehicle_index)][index]

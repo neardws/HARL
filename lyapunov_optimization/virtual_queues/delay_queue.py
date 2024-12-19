@@ -59,6 +59,8 @@ class delayQueue(baseQueue):
         i2c_queue_backlogs,
         cc_queue_backlogs,
     ):
+        if "client_vehicle_" + str(client_vehicle_index) + "_task_" + str(task_index) not in task_offloading_decisions:
+            return 0.0
         task_offloading = task_offloading_decisions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(task_index)]
         if task_offloading == "Local":
             return lc_queue_backlogs[client_vehicle_index]
@@ -85,11 +87,17 @@ class delayQueue(baseQueue):
         average_task_arrival_rate = 0.0
         average_data_size = 0.0
         
+        vehicle_number = 0        
         for client_vehicle in client_vehicles:
+            if self._task_index not in client_vehicle.get_tasks_ids():
+                continue
+            vehicle_number += 1
             average_task_arrival_rate += client_vehicle.get_task_arrival_rate_by_task_index(self._task_index)
             average_data_size += client_vehicle.get_average_task_data_size_by_task_index(self._task_index)
         
-        average_task_arrival_rate /= self._client_vehicle_number
-        average_data_size /= self._client_vehicle_number
+        if vehicle_number == 0:
+            return 0.0
+        average_task_arrival_rate /= vehicle_number
+        average_data_size /= vehicle_number
           
         return average_task_arrival_rate * average_data_size

@@ -116,6 +116,9 @@ class vehicle(object):
         task_id_index = self._task_ids.index(task_inedx)
         return self._task_arrival_rate[task_id_index]
     
+    def get_tasks_ids(self) -> List[int]:
+        return self._task_ids
+    
     def generate_task(self, tasks) -> List[Tuple]:  # tasks is the result of generate_task_set function in object_generation.py
         # 根据不同task_id的到达率生成任务, 需要服从泊松分布 
         retrun_tasks = []

@@ -6,7 +6,7 @@ def compute_v2v_transmission_cost(
     client_vehicle_index: int,
     client_vehicle_transmission_power: float,
     transmission_power_allocation_actions: Dict,
-):
+):  
     return transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)][0] * \
         client_vehicle_transmission_power
     
@@ -74,7 +74,7 @@ def compute_lc_computing_cost(
     computation_resource_allocation_actions: Dict,
 ):  
     cost = 0.0
-    for task, index in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(client_vehicle_index)]):
+    for index, task in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(client_vehicle_index)]):
         allocated_cycles = client_vehicle_computing_capability * \
             computation_resource_allocation_actions["client_vehicle_" + str(client_vehicle_index)][index]
         cost += allocated_cycles 
@@ -87,7 +87,7 @@ def compute_vc_computing_cost(
     computation_resource_allocation_actions: Dict,
 ):
     cost = 0.0
-    for task, index in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)]):
+    for index, task in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)]):
         allocated_cycles = server_vehicle_computing_capability * \
             computation_resource_allocation_actions["server_vehicle_" + str(server_vehicle_index)][index]
         cost += allocated_cycles
@@ -100,7 +100,7 @@ def compute_ec_computing_cost(
     computation_resource_allocation_actions: Dict,
 ):
     cost = 0.0
-    for task, index in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]):
+    for index, task in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]):
         allocated_cycles = edge_node_computing_capability * \
             computation_resource_allocation_actions["edge_node_" + str(edge_node_index)][index]
         cost += allocated_cycles
@@ -112,7 +112,7 @@ def compute_cc_computing_cost(
     computation_resource_allocation_actions: Dict,
 ):
     cost = 0.0
-    for task, index in enumerate(task_offloaded_at_cloud["cloud"]):
+    for index, task in enumerate(task_offloaded_at_cloud["cloud"]):
         allocated_cycles = cloud_computing_capability * \
             computation_resource_allocation_actions["cloud"][index]
         cost += allocated_cycles
@@ -141,14 +141,38 @@ def compute_total_cost(
 ):
     total_cost = 0.0
     for i in range(client_vehicle_number):
-        total_cost += v2v_transmission_costs[i] / maxmimum_v2v_transmission_costs[i] + \
-            v2i_transmission_costs[i] / maximum_v2i_transmission_costs[i] + \
-            lc_computing_costs[i] / maximum_lc_computing_costs[i]
+        if maxmimum_v2v_transmission_costs[i] != 0:
+            total_cost += v2v_transmission_costs[i] / maxmimum_v2v_transmission_costs[i] 
+        else:
+            total_cost += 1
+        if maximum_v2i_transmission_costs[i] != 0:
+            total_cost += v2i_transmission_costs[i] / maximum_v2i_transmission_costs[i]
+        else:
+            total_cost += 1
+        if maximum_lc_computing_costs[i] != 0:
+            total_cost += lc_computing_costs[i] / maximum_lc_computing_costs[i]
+        else:
+            total_cost += 1
     for i in range(server_vehicle_number):
-        total_cost += vc_computing_costs[i] / maximum_vc_computing_costs[i]
+        if maximum_vc_computing_costs[i] != 0:
+            total_cost += vc_computing_costs[i] / maximum_vc_computing_costs[i]
+        else:
+            total_cost += 1
     for i in range(edge_node_number):
-        total_cost += ec_computing_costs[i] / maximum_ec_computing_costs[i] + \
-            i2i_transmission_costs[i] / maximum_i2i_transmission_costs[i] + \
-            i2c_transmission_costs[i] / maximum_i2c_transmission_costs[i]
-    total_cost += cc_computing_cost / maximum_cc_computing_cost
+        if maximum_ec_computing_costs[i] != 0:
+            total_cost += ec_computing_costs[i] / maximum_ec_computing_costs[i]
+        else:
+            total_cost += 1
+        if maximum_i2i_transmission_costs[i] != 0:
+            total_cost += i2i_transmission_costs[i] / maximum_i2i_transmission_costs[i]
+        else:
+            total_cost += 1
+        if maximum_i2c_transmission_costs[i] != 0:
+            total_cost += i2c_transmission_costs[i] / maximum_i2c_transmission_costs[i]
+        else:
+            total_cost += 1
+    if maximum_cc_computing_cost != 0:
+        total_cost += cc_computing_cost / maximum_cc_computing_cost
+    else:
+        total_cost += 1
     return total_cost

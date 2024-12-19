@@ -18,7 +18,7 @@ class vc_ressource_queue(baseQueue):
         computation_resource_allocation_actions,
     ):  
         input = 0.0
-        for task, index in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(self._server_vehicle_index)]):
+        for index, task in enumerate(task_offloaded_at_server_vehicles["server_vehicle_" + str(self._server_vehicle_index)]):
             allocated_cycles = self._server_vehicle_computing_capability * \
                 computation_resource_allocation_actions["server_vehicle_" + str(self._server_vehicle_index)][index]
             input += allocated_cycles

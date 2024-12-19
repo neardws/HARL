@@ -18,7 +18,7 @@ class ec_ressource_queue(baseQueue):
         computation_resource_allocation_actions,
     ):  
         input = 0.0
-        for task, index in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(self._edge_node_index)]):
+        for index, task in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(self._edge_node_index)]):
             allocated_cycles = self._edge_node_computing_capability * \
                 computation_resource_allocation_actions["edge_node_" + str(self._edge_node_index)][index]
             input += allocated_cycles

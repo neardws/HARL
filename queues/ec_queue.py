@@ -1,5 +1,3 @@
-from typing import List
-from objects.task_object import task
 from queues.base_queue import baseQueue
 
 class ECQueue(baseQueue):
@@ -27,7 +25,7 @@ class ECQueue(baseQueue):
         task_offloaded_at_edge_nodes,
     ):
         output = 0.0
-        for task, index in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(self._edge_node_index)]):
+        for index, task in enumerate(task_offloaded_at_edge_nodes["edge_node_" + str(self._edge_node_index)]):
             task_required_cycles = task["task"].get_requested_computing_cycles()
             allocated_cycles = edge_node_computing_capability * \
                 computation_resource_allocation_actions["edge_node_" + str(self._edge_node_index)][index]

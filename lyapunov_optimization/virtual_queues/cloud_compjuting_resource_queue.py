@@ -16,7 +16,7 @@ class cc_ressource_queue(baseQueue):
         computation_resource_allocation_actions,
     ):  
         input = 0.0
-        for task, index in enumerate(task_offloaded_at_cloud):
+        for index, task in enumerate(task_offloaded_at_cloud):
             allocated_cycles = self._cloud_computing_capability * \
                 computation_resource_allocation_actions["cloud"][index]
             input += allocated_cycles
