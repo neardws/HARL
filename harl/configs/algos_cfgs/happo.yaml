@@ -14,10 +14,10 @@ device:
 train:
   # number of parallel environments for training data collection
   n_rollout_threads: 20
-  # number of total training steps
-  num_env_steps: 10000000
+  # number of total training steps    # the real episodes is num_env_steps // episode_length // n_rollout_theads
+  num_env_steps: 10000000       
   # number of steps per environment per training data collection
-  episode_length: 200
+  episode_length: 100
   # logging interval
   log_interval: 5
   # evaluation interval

@@ -30,7 +30,7 @@ def compute_i2i_transmission_cost(
 ):
     cost = 0.0
     for i in range(client_vehicle_number):
-        if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index] == 1:
+        if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index][now] == 1:
             tasks_of_vehicle_i = client_vehicles.get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), maximum_task_generation_number)
             if min_num > 0:
@@ -56,7 +56,7 @@ def compute_i2c_transmission_cost(
 ):
     cost = 0.0
     for i in range(client_vehicle_number):
-        if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index] == 1:
+        if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index][now] == 1:
             tasks_of_vehicle_i = client_vehicles.get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), maximum_task_generation_number)
             if min_num > 0:

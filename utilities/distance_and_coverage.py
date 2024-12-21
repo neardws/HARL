@@ -21,17 +21,17 @@ def calculate_distance(
 def get_distance_matrix_between_client_vehicles_and_server_vehicles(
     client_vehicles: List[vehicle],
     server_vehicles: List[vehicle],
-    now: int
+    time_slot_num: int,
 ) -> np.ndarray:
     client_vehicle_num = len(client_vehicles)
     server_vehicle_num = len(server_vehicles)
-    distance_matrix = np.zeros((client_vehicle_num, server_vehicle_num))
-    for i in range(client_vehicle_num):
-        for j in range(server_vehicle_num):
-            if i != j:
-                distance_matrix[i][j] = calculate_distance(
-                    client_vehicles[i].get_mobility(now), 
-                    server_vehicles[j].get_mobility(now),
+    distance_matrix = np.zeros((client_vehicle_num, server_vehicle_num, time_slot_num))
+    for t in range(time_slot_num):
+        for i in range(client_vehicle_num):
+            for j in range(server_vehicle_num):
+                distance_matrix[i][j][t] = calculate_distance(
+                    client_vehicles[i].get_mobility(now=t), 
+                    server_vehicles[j].get_mobility(now=t),
                     type="vehicles"
                 )
     return distance_matrix
@@ -40,52 +40,54 @@ def get_vehicles_under_V2V_communication_range(
     distance_matrix : np.ndarray,
     client_vehicles: List[vehicle],
     server_vehicles: List[vehicle],
+    time_slot_num: int,
 ) -> np.ndarray:
     vehicles_under_V2V_communication_range = np.zeros(
-        (len(client_vehicles), len(server_vehicles)))
-    for i in range(len(client_vehicles)):
-        for j in range(len(server_vehicles)):
-            if i != j:
-                if distance_matrix[i][j] <= client_vehicles[i].get_communication_range():
-                    vehicles_under_V2V_communication_range[i][j] = 1
+        (len(client_vehicles), len(server_vehicles), time_slot_num))
+    for t in range(time_slot_num):
+        for i in range(len(client_vehicles)):
+            for j in range(len(server_vehicles)):
+                if i != j:
+                    if distance_matrix[i][j][t] <= client_vehicles[i].get_communication_range():
+                        vehicles_under_V2V_communication_range[i][j][t] = 1
     return vehicles_under_V2V_communication_range
-
-
 
 def get_distance_matrix_between_vehicles_and_edge_nodes(
     client_vehicles: List[vehicle],
     edge_nodes: List[edge_node],
-    now: int,
+    time_slot_num: int,
 ) -> np.ndarray:
     vehicle_num = len(client_vehicles)
     edge_node_num = len(edge_nodes)
-    distance_matrix = np.zeros((vehicle_num, edge_node_num))
-    for i in range(vehicle_num):
-        for j in range(edge_node_num):
-            distance_matrix[i][j] = calculate_distance(
-                client_vehicles[i].get_mobility(now = now), 
-                edge_nodes[j].get_mobility(),
-                type="edge_nodes"
-            )
+    distance_matrix = np.zeros((vehicle_num, edge_node_num, time_slot_num))
+    for t in range(time_slot_num):
+        for i in range(vehicle_num):
+            for j in range(edge_node_num):
+                distance_matrix[i][j][t] = calculate_distance(
+                    client_vehicles[i].get_mobility(now=t), 
+                    edge_nodes[j].get_mobility(),
+                    type="edge_nodes"
+                )
     return distance_matrix
 
 def get_vehicles_under_V2I_communication_range(
     client_vehicles: List[vehicle],
     edge_nodes: List[edge_node],
-    now: int,
+    time_slot_num: int,
 ) -> np.ndarray:
     num_vehicles = len(client_vehicles)
     num_edge_nodes = len(edge_nodes)
-    vehicles_under_V2I_communication_range = np.zeros((num_vehicles, num_edge_nodes))
-    for i in range(num_vehicles):
-        for j in range(num_edge_nodes):
-            distance = calculate_distance(
-                client_vehicles[i].get_mobility(now), 
-                edge_nodes[j].get_mobility(),
-                type="edge_nodes"
-            )
-            if(distance <= edge_nodes[j].get_communication_range()):
-                vehicles_under_V2I_communication_range[i][j] = 1
+    vehicles_under_V2I_communication_range = np.zeros((num_vehicles, num_edge_nodes, time_slot_num))
+    for t in range(time_slot_num):
+        for i in range(num_vehicles):
+            for j in range(num_edge_nodes):
+                distance = calculate_distance(
+                    client_vehicles[i].get_mobility(now=t), 
+                    edge_nodes[j].get_mobility(),
+                    type="edge_nodes"
+                )
+                if(distance <= edge_nodes[j].get_communication_range()):
+                    vehicles_under_V2I_communication_range[i][j][t] = 1
     return vehicles_under_V2I_communication_range
 
 

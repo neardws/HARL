@@ -22,17 +22,17 @@ class TrajectoriesProcessing(object):
     ) -> None:
         self._file_names : dict = {}
         # I-80-Emeryville-CA-1650feet
-        self._file_names['I-80-Emeryville-CA-1650feet-0400pm-0415pm'] = 'trajectories_files/I-80-Emeryville-CA-1650feet/i-80-vehicle-trajectory-data/vehicle-trajectory-data/0400pm-0415pm/trajectories-0400-0415.csv'
-        self._file_names['I-80-Emeryville-CA-1650feet-0500pm-0515pm'] = 'trajectories_files/I-80-Emeryville-CA-1650feet/i-80-vehicle-trajectory-data/vehicle-trajectory-data/0500pm-0515pm/trajectories-0500-0515.csv'
-        self._file_names['I-80-Emeryville-CA-1650feet-0515pm-0530pm'] = 'trajectories_files/I-80-Emeryville-CA-1650feet/i-80-vehicle-trajectory-data/vehicle-trajectory-data/0515pm-0530pm/trajectories-0515-0530.csv'
+        self._file_names['I-80-Emeryville-CA-1650feet-0400pm-0415pm'] = '/root/HARL/trajectories_files/I-80-Emeryville-CA-1650feet/i-80-vehicle-trajectory-data/vehicle-trajectory-data/0400pm-0415pm/trajectories-0400-0415.csv'
+        self._file_names['I-80-Emeryville-CA-1650feet-0500pm-0515pm'] = '/root/HARL/trajectories_files/I-80-Emeryville-CA-1650feet/i-80-vehicle-trajectory-data/vehicle-trajectory-data/0500pm-0515pm/trajectories-0500-0515.csv'
+        self._file_names['I-80-Emeryville-CA-1650feet-0515pm-0530pm'] = '/root/HARL/trajectories_files/I-80-Emeryville-CA-1650feet/i-80-vehicle-trajectory-data/vehicle-trajectory-data/0515pm-0530pm/trajectories-0515-0530.csv'
         # Lankershim-Boulevard-LosAngeles-CA-1600feet
-        self._file_names['Lankershim-Boulevard-LosAngeles-CA-1600feet'] = 'trajectories_files/Lankershim-Boulevard-LosAngeles-CA-1600feet/NGSIM__Lankershim_Vehicle_Trajectories.csv'
+        self._file_names['Lankershim-Boulevard-LosAngeles-CA-1600feet'] = '/root/HARL/trajectories_files/Lankershim-Boulevard-LosAngeles-CA-1600feet/NGSIM__Lankershim_Vehicle_Trajectories.csv'
         # Peachtree-Street-Atlanta-GA-2100feet
-        self._file_names['Peachtree-Street-Atlanta-GA-2100feet'] = 'trajectories_files/Peachtree-Street-Atlanta-GA-2100feet/NGSIM_Peachtree_Vehicle_Trajectories.csv'
+        self._file_names['Peachtree-Street-Atlanta-GA-2100feet'] = '/root/HARL/trajectories_files/Peachtree-Street-Atlanta-GA-2100feet/NGSIM_Peachtree_Vehicle_Trajectories.csv'
         # US-101-SanDiego-CA-1500feet
-        self._file_names['US-101-SanDiego-CA-1500feet-0750am-0805am'] = 'trajectories_files/US-101-LosAngeles-CA-2100feet/us-101-vehicle-trajectory-data/vehicle-trajectory-data/0750am-0805am/trajectories-0750am-0805am.csv'
-        self._file_names['US-101-SanDiego-CA-1500feet-0805am-0820am'] = 'trajectories_files/US-101-LosAngeles-CA-2100feet/us-101-vehicle-trajectory-data/vehicle-trajectory-data/0805am-0820am/trajectories-0805am-0820am.csv'
-        self._file_names['US-101-SanDiego-CA-1500feet-0820am-0835am'] = 'trajectories_files/US-101-LosAngeles-CA-2100feet/us-101-vehicle-trajectory-data/vehicle-trajectory-data/0820am-0835am/trajectories-0820am-0835am.csv'
+        self._file_names['US-101-SanDiego-CA-1500feet-0750am-0805am'] = '/root/HARL/trajectories_files/US-101-LosAngeles-CA-2100feet/us-101-vehicle-trajectory-data/vehicle-trajectory-data/0750am-0805am/trajectories-0750am-0805am.csv'
+        self._file_names['US-101-SanDiego-CA-1500feet-0805am-0820am'] = '/root/HARL/trajectories_files/US-101-LosAngeles-CA-2100feet/us-101-vehicle-trajectory-data/vehicle-trajectory-data/0805am-0820am/trajectories-0805am-0820am.csv'
+        self._file_names['US-101-SanDiego-CA-1500feet-0820am-0835am'] = '/root/HARL/trajectories_files/US-101-LosAngeles-CA-2100feet/us-101-vehicle-trajectory-data/vehicle-trajectory-data/0820am-0835am/trajectories-0820am-0835am.csv'
         
         self._start_times : dict = {}
         self._end_times : dict = {}

@@ -46,7 +46,7 @@ class I2IQueue(baseQueue):
         for e in range(self._edge_node_number):
             if e != self._edge_node_index:
                 for i in range(self._client_vehicle_number):
-                    if vehicles_under_V2I_communication_range[i][e] == 1:
+                    if vehicles_under_V2I_communication_range[i][e][now] == 1:
                         tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                         min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
                         if min_num > 0:
@@ -79,7 +79,7 @@ class I2IQueue(baseQueue):
         # 计算SINR
         interference = 0.0
         for i in range(self._client_vehicle_number):
-            if vehicles_under_V2I_communication_range[i][edge_node_index] == 1:
+            if vehicles_under_V2I_communication_range[i][edge_node_index][now] == 1:
                 tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                 min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
                 if min_num > 0:
@@ -90,12 +90,12 @@ class I2IQueue(baseQueue):
                             tag = True
                             break
                     if tag:
-                        interference += np.abs(self._channel_gains_between_client_vehicle_and_edge_nodes[i][edge_node_index]) ** 2 * \
+                        interference += np.abs(self._channel_gains_between_client_vehicle_and_edge_nodes[i][edge_node_index][now]) ** 2 * \
                             self._client_vehicles[i].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(i)][1]
         
         sinr = compute_V2I_SINR(
             white_gaussian_noise=self._white_gaussian_noise,
-            channel_gain=self._channel_gains_between_client_vehicle_and_edge_nodes[client_vehicle_index][edge_node_index],
+            channel_gain=self._channel_gains_between_client_vehicle_and_edge_nodes[client_vehicle_index][edge_node_index][now],
             transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)][1],
             interference=interference,
         )
@@ -114,7 +114,7 @@ class I2IQueue(baseQueue):
         for e in range(self._edge_node_number):
             if e != self._edge_node_index:
                 for i in range(self._client_vehicle_number):
-                    if vehicles_under_V2I_communication_range[i][e] == 1:
+                    if vehicles_under_V2I_communication_range[i][e][now] == 1:
                         tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
                         min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number)
                         if min_num > 0:

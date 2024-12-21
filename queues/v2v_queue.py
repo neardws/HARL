@@ -41,7 +41,7 @@ class V2VQueue(baseQueue):
                 for j in range(min_num):
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == \
                         "Server Vehicle " + str(self._server_vehicle_index) and \
-                        vehicles_under_V2V_communication_range[i][self._server_vehicle_index] == 1:
+                        vehicles_under_V2V_communication_range[i][self._server_vehicle_index][now] == 1:
                         task_index = tasks_of_vehicle_i[j][1]
                         task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
                         task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_index(task_index)
@@ -64,7 +64,7 @@ class V2VQueue(baseQueue):
                 for j in range(min_num):
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == \
                         "Server Vehicle " + str(self._server_vehicle_index) and \
-                        vehicles_under_V2V_communication_range[i][self._server_vehicle_index] == 1:
+                        vehicles_under_V2V_communication_range[i][self._server_vehicle_index][now] == 1:
                         tag = True
                         break
                 if tag:
@@ -98,19 +98,19 @@ class V2VQueue(baseQueue):
                 for j in range(min_num):
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == \
                         "Server Vehicle " + str(server_vehicle_index) and \
-                        vehicles_under_V2V_communication_range[i][self._server_vehicle_index] == 1:
+                        vehicles_under_V2V_communication_range[i][self._server_vehicle_index][now] == 1:
                         tag = True
                         break
                 if tag:
                     if i != client_vehicle_index:
-                        if np.abs(self._channel_gains_between_client_vehicle_and_server_vehicles[i][server_vehicle_index]) ** 2 < \
-                            np.abs(self._channel_gains_between_client_vehicle_and_server_vehicles[client_vehicle_index][server_vehicle_index]) ** 2:
-                            interference += np.abs(self._channel_gains_between_client_vehicle_and_server_vehicles[i][self._server_vehicle_index]) ** 2 * \
+                        if np.abs(self._channel_gains_between_client_vehicle_and_server_vehicles[i][server_vehicle_index][now]) ** 2 < \
+                            np.abs(self._channel_gains_between_client_vehicle_and_server_vehicles[client_vehicle_index][server_vehicle_index][now]) ** 2:
+                            interference += np.abs(self._channel_gains_between_client_vehicle_and_server_vehicles[i][self._server_vehicle_index][now]) ** 2 * \
                                 self._client_vehicles[i].get_transmission_power() * transmission_power_allocation_actions["client_vehicle_" + str(i)][0]
         
         sinr = compute_V2V_SINR(
             white_gaussian_noise=self._white_gaussian_noise,
-            channel_gain=self._channel_gains_between_client_vehicle_and_server_vehicles[client_vehicle_index][server_vehicle_index],
+            channel_gain=self._channel_gains_between_client_vehicle_and_server_vehicles[client_vehicle_index][server_vehicle_index][now],
             transmission_power=self._client_vehicles[client_vehicle_index].get_transmission_power()  * transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)][0],
             interference=interference,
         )

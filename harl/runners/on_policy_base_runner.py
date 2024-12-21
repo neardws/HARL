@@ -174,7 +174,7 @@ class OnPolicyBaseRunner:
             self.render()
             return
         print("start running")
-        self.warmup()
+        self.warmup()       # reset in the beginning
         
         # the number of episodes to train
         episodes = (

@@ -91,7 +91,6 @@ class VECEnv:
         self._white_gaussian_noise: int = self.args["white_gaussian_noise"]
         self._path_loss_exponent: int = self.args["path_loss_exponent"]
         
-        
         self._maximum_server_vehicle_num = 5
         
         self._seed = self.args["seed"]
@@ -212,30 +211,32 @@ class VECEnv:
         self._distance_matrix_between_client_vehicles_and_server_vehicles : np.ndarray = get_distance_matrix_between_client_vehicles_and_server_vehicles(
             client_vehicles=self._client_vehicles,
             server_vehicles=self._server_vehicles,
-            now=self.cur_step,
+            time_slot_num=self._slot_length,
         )
                 
         self._distance_matrix_between_client_vehicles_and_edge_nodes : np.ndarray = get_distance_matrix_between_vehicles_and_edge_nodes(
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
-            now=self.cur_step,
+            time_slot_num=self._slot_length,
         )
         
         self._vehicles_under_V2V_communication_range : np.ndarray = get_vehicles_under_V2V_communication_range(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
             server_vehicles=self._server_vehicles,
+            time_slot_num=self._slot_length,
         )
         
         self._vehicles_under_V2I_communication_range : np.ndarray = get_vehicles_under_V2I_communication_range(
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
-            now=self.cur_step,
+            time_slot_num=self._slot_length,
         )
         
         self._channel_gains_between_client_vehicle_and_server_vehicles = obtain_channel_gains_between_client_vehicle_and_server_vehicles(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
             client_vehicles=self._client_vehicles,
+            time_slot_num=self._slot_length,
             server_vehicles=self._server_vehicles,
             path_loss_exponent=self._path_loss_exponent,
         )
@@ -243,6 +244,7 @@ class VECEnv:
         self._channel_gains_between_client_vehicle_and_edge_nodes = obtain_channel_gains_between_vehicles_and_edge_nodes(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_edge_nodes,
             client_vehicles=self._client_vehicles,
+            time_slot_num=self._slot_length,
             edge_nodes=self._edge_nodes,
             path_loss_exponent=self._path_loss_exponent,
         )
@@ -442,6 +444,9 @@ class VECEnv:
 
     def step(self, actions):
         # transform the actions into the task offloading actions, transmission power allocation actions, computation resource allocation actions
+        
+        # one esipode is about 5 mins, which contains 100 slots
+        
         task_offloading_actions, transmission_power_allocation_actions, \
             computation_resource_allocation_actions = self.transform_actions(
                 actions=actions,
@@ -472,58 +477,19 @@ class VECEnv:
             
         self.cur_step += 1
         
-        self._client_vehicles, self._server_vehicles = get_client_and_server_vehicles(
-            vehicles=self._vehicles,
-        )
-        
-        self._client_vehicle_num = len(self._client_vehicles)
-        self._server_vehicle_num = len(self._server_vehicles)
-        
-        
-        self._distance_matrix_between_client_vehicles_and_server_vehicles : np.ndarray = get_distance_matrix_between_client_vehicles_and_server_vehicles(
-            client_vehicles=self._client_vehicles,
-            server_vehicles=self._server_vehicles,
-            now=self.cur_step,
-        )
-                
-        self._distance_matrix_between_client_vehicles_and_edge_nodes : np.ndarray = get_distance_matrix_between_vehicles_and_edge_nodes(
-            client_vehicles=self._client_vehicles,
-            edge_nodes=self._edge_nodes,
-            now=self.cur_step,
-        )
-        
-        self._vehicles_under_V2V_communication_range : np.ndarray = get_vehicles_under_V2V_communication_range(
-            distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
-            client_vehicles=self._client_vehicles,
-            server_vehicles=self._server_vehicles,
-        )
-        
-        self._vehicles_under_V2I_communication_range : np.ndarray = get_vehicles_under_V2I_communication_range(
-            client_vehicles=self._client_vehicles,
-            edge_nodes=self._edge_nodes,
-            now=self.cur_step,
-        )
-        
-        self._channel_gains_between_client_vehicle_and_server_vehicles = obtain_channel_gains_between_client_vehicle_and_server_vehicles(
-            distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
-            client_vehicles=self._client_vehicles,
-            server_vehicles=self._server_vehicles,
-            path_loss_exponent=self._path_loss_exponent,
-        )
-                
-        self._channel_gains_between_client_vehicle_and_edge_nodes = obtain_channel_gains_between_vehicles_and_edge_nodes(
-            distance_matrix=self._distance_matrix_between_client_vehicles_and_edge_nodes,
-            client_vehicles=self._client_vehicles,
-            edge_nodes=self._edge_nodes,
-            path_loss_exponent=self._path_loss_exponent,
-        )
+        if self.cur_step >= self._slot_length:
+            self.cur_step = self._slot_length - 1
         
         dones = [False for _ in range(self.n_agents)]
-        if self.cur_step == self._slot_length:
+        info = [{"bad_transition": False} for _ in range(self.n_agents)]
+        if self.cur_step == self._slot_length - 1:
+            for _ in range(self.n_agents):
+                info[_]["bad_transition"] = True
             dones = [True for _ in range(self.n_agents)]
-        info = [{} for _ in range(self.n_agents)]
+    
         obs = self.obtain_observation()
-        s_obs = self.repeat(self.state())
+        env_state = self.state()
+        s_obs = self.repeat(env_state)
         rewards = [[reward]] * self.n_agents
         return (
             obs,
@@ -539,51 +505,6 @@ class VECEnv:
         self.cur_step = 0
         
         # reset the environment
-        self._client_vehicles, self._server_vehicles = get_client_and_server_vehicles(
-            vehicles=self._vehicles,
-        )
-        
-        self._client_vehicle_num = len(self._client_vehicles)
-        self._server_vehicle_num = len(self._server_vehicles)
-        
-        
-        self._distance_matrix_between_client_vehicles_and_server_vehicles : np.ndarray = get_distance_matrix_between_client_vehicles_and_server_vehicles(
-            client_vehicles=self._client_vehicles,
-            server_vehicles=self._server_vehicles,
-            now=self.cur_step,
-        )
-                
-        self._distance_matrix_between_client_vehicles_and_edge_nodes : np.ndarray = get_distance_matrix_between_vehicles_and_edge_nodes(
-            client_vehicles=self._client_vehicles,
-            edge_nodes=self._edge_nodes,
-            now=self.cur_step,
-        )
-        
-        self._vehicles_under_V2V_communication_range : np.ndarray = get_vehicles_under_V2V_communication_range(
-            distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
-            client_vehicles=self._client_vehicles,
-            server_vehicles=self._server_vehicles,
-        )
-        
-        self._vehicles_under_V2I_communication_range : np.ndarray = get_vehicles_under_V2I_communication_range(
-            client_vehicles=self._client_vehicles,
-            edge_nodes=self._edge_nodes,
-            now=self.cur_step,
-        )
-        
-        self._channel_gains_between_client_vehicle_and_server_vehicles = obtain_channel_gains_between_client_vehicle_and_server_vehicles(
-            distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
-            client_vehicles=self._client_vehicles,
-            server_vehicles=self._server_vehicles,
-            path_loss_exponent=self._path_loss_exponent,
-        )
-                
-        self._channel_gains_between_client_vehicle_and_edge_nodes = obtain_channel_gains_between_vehicles_and_edge_nodes(
-            distance_matrix=self._distance_matrix_between_client_vehicles_and_edge_nodes,
-            client_vehicles=self._client_vehicles,
-            edge_nodes=self._edge_nodes,
-            path_loss_exponent=self._path_loss_exponent,
-        )
                 
         self._task_offloaded_at_client_vehicles = {}
         self._task_offloaded_at_server_vehicles = {}
@@ -1097,9 +1018,7 @@ class VECEnv:
 
                 # 客户端队列累积
                 lc_backlog = self._lc_queue_backlogs[client_vehicle_index][self.cur_step]
-                # print("lc_backlog: ", lc_backlog)
-                # print("lc_queue_backlogs: ", self._lc_queue_backlogs)
-                # print("* " * 20)
+
                 if self._maximum_lc_queue_length[client_vehicle_index] != 0:
                     observation[index] = lc_backlog / self._maximum_lc_queue_length[client_vehicle_index]
                 else:
@@ -1108,7 +1027,7 @@ class VECEnv:
 
                 # V2V 连接信息
                 for server in range(self._server_vehicle_num):
-                    v2v_connection = self._vehicles_under_V2V_communication_range[client_vehicle_index][server]
+                    v2v_connection = self._vehicles_under_V2V_communication_range[client_vehicle_index][server][self.cur_step]
                     observation[index] = v2v_connection
                     index += 1
                     
@@ -1135,7 +1054,7 @@ class VECEnv:
                 
                 # V2I 连接信息
                 for edge in range(self._edge_num):
-                    v2i_connection = self._vehicles_under_V2I_communication_range[client_vehicle_index][edge]
+                    v2i_connection = self._vehicles_under_V2I_communication_range[client_vehicle_index][edge][self.cur_step]
                     observation[index] = v2i_connection
                     index += 1
                 
@@ -1220,7 +1139,7 @@ class VECEnv:
 
                 # V2V 连接信息
                 for server in range(self._server_vehicle_num):
-                    v2v_connection = self._vehicles_under_V2V_communication_range[vehicle_index][server]
+                    v2v_connection = self._vehicles_under_V2V_communication_range[vehicle_index][server][self.cur_step]
                     observation[index] = v2v_connection
                     index += 1
                     
@@ -1235,7 +1154,7 @@ class VECEnv:
                 
                 # V2I 连接信息
                 for edge in range(self._edge_num):
-                    v2i_connection = self._vehicles_under_V2I_communication_range[vehicle_index][edge]
+                    v2i_connection = self._vehicles_under_V2I_communication_range[vehicle_index][edge][self.cur_step]
                     observation[index] = v2i_connection
                     index += 1
                 
@@ -1425,7 +1344,7 @@ class VECEnv:
         # 3. V2V 连接信息
         for client in range(self._client_vehicle_num):
             for server in range(self._server_vehicle_num):
-                v2v_connection = self._vehicles_under_V2V_communication_range[client][server]  # 获取 V2V 连接信息
+                v2v_connection = self._vehicles_under_V2V_communication_range[client][server][self.cur_step]  # 获取 V2V 连接信息
                 state[index] = v2v_connection
                 index += 1
                 
@@ -1448,7 +1367,7 @@ class VECEnv:
         # 5. V2I 连接信息
         for client in range(self._client_vehicle_num):
             for edge in range(self._edge_num):
-                v2i_connection = self._vehicles_under_V2I_communication_range[client][edge]
+                v2i_connection = self._vehicles_under_V2I_communication_range[client][edge][self.cur_step]  # 获取 V2I 连接信息
                 state[index] = v2i_connection
                 index += 1
 
@@ -1523,7 +1442,7 @@ class VECEnv:
                         tag = 0
                         flag = False
                         for server_vehicle_index in range(self._server_vehicle_num):
-                            if vehicles_under_V2V_communication_range[client_vehicle_index][server_vehicle_index] == 1:
+                            if vehicles_under_V2V_communication_range[client_vehicle_index][server_vehicle_index][self.cur_step] == 1:
                                 tag += 1
                                 if max_index == tag:
                                     flag = True
@@ -1593,16 +1512,16 @@ class VECEnv:
                             task_offloaded_at_client_vehicles["client_vehicle_" + str(i)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
                     elif task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Server Vehicle"):
                         server_vehicle_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
-                        if vehicles_under_V2V_communication_range[i][server_vehicle_index] == 1:
+                        if vehicles_under_V2V_communication_range[i][server_vehicle_index][now] == 1:
                             if len(task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)]) < self._maximum_task_offloaded_at_server_vehicle_number:
                                 task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
                     elif task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Edge Node"):
                         edge_node_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
-                        if any(vehicles_under_V2I_communication_range[i][e] == 1 for e in range(self._edge_num)):
+                        if any(vehicles_under_V2I_communication_range[i][e][now] == 1 for e in range(self._edge_num)):
                             if len(task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]) < self._maximum_task_offloaded_at_edge_node_number:
                                 task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
                     else:
-                        if any(vehicles_under_V2I_communication_range[i][e] == 1 for e in range(self._edge_num)):
+                        if any(vehicles_under_V2I_communication_range[i][e][now] == 1 for e in range(self._edge_num)):
                             if len(task_offloaded_at_cloud["cloud"]) < self._maximum_task_offloaded_at_cloud_number:
                                 task_offloaded_at_cloud["cloud"].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
                                 
