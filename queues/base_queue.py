@@ -51,3 +51,6 @@ class baseQueue:
         if time_slot > self._time_slot_num or time_slot < 0:
             raise ValueError("The time slot is out of range.")
         return self._outputs[time_slot]
+    
+    def __str__(self):
+        return "name: " + self._queue_name + "\nqueue: " + str(self._queue) + "\ninputs: " + str(self._inputs) + "\noutputs: " + str(self._outputs) + "\n"

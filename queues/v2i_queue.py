@@ -4,6 +4,7 @@ from objects.vehicle_object import vehicle
 from typing import List, Dict
 import numpy as np
 from utilities.time_calculation import compute_transmission_rate, compute_V2I_SINR
+from utilities.conversion import cover_MB_to_bit
 
 class V2IQueue(baseQueue):
     def __init__(
@@ -44,7 +45,7 @@ class V2IQueue(baseQueue):
                         if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] .startswith("Edge Node") or \
                             task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Cloud":
                             task_id = tasks_of_vehicle_i[j][1]
-                            task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
+                            task_size = cover_MB_to_bit(tasks_of_vehicle_i[j][2].get_input_data_size())
                             task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_index(task_id)
                             input += task_size * task_arrival_rate
         return input

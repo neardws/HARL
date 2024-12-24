@@ -20,7 +20,7 @@ def compute_v2i_transmission_cost(
         
 def compute_i2i_transmission_cost(
     edge_node_index: int,
-    distance_matrix_between_client_vehicles_and_edge_nodes: np.ndarray,
+    vehicles_under_V2I_communication_range: np.ndarray,
     distance_matrix_between_edge_nodes: np.ndarray,
     task_offloading_actions: Dict,
     client_vehicles: List[vehicle],
@@ -30,11 +30,13 @@ def compute_i2i_transmission_cost(
 ):
     cost = 0.0
     for i in range(client_vehicle_number):
-        if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index][now] == 1:
-            tasks_of_vehicle_i = client_vehicles.get_tasks_by_time(now)
+        if vehicles_under_V2I_communication_range[i][edge_node_index][now] == 1:
+            tasks_of_vehicle_i = client_vehicles[i].get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), maximum_task_generation_number)
             if min_num > 0:
                 for j in range(min_num):
+                    # print("task_offloading: ", task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)])
+                    # print("distance: ", distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index][now])
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Edge Node") and \
                         int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1]) != edge_node_index:
                         other_edge_node_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
@@ -46,7 +48,7 @@ def compute_i2i_transmission_cost(
 
 def compute_i2c_transmission_cost(
     edge_node_index: int,
-    distance_matrix_between_client_vehicles_and_edge_nodes: np.ndarray,
+    vehicles_under_V2I_communication_range: np.ndarray,
     distance_matrix_between_edge_nodes_and_the_cloud: np.ndarray,
     task_offloading_actions: Dict,
     client_vehicles: List[vehicle],
@@ -56,8 +58,8 @@ def compute_i2c_transmission_cost(
 ):
     cost = 0.0
     for i in range(client_vehicle_number):
-        if distance_matrix_between_client_vehicles_and_edge_nodes[i][edge_node_index][now] == 1:
-            tasks_of_vehicle_i = client_vehicles.get_tasks_by_time(now)
+        if vehicles_under_V2I_communication_range[i][edge_node_index][now] == 1:
+            tasks_of_vehicle_i = client_vehicles[i].get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), maximum_task_generation_number)
             if min_num > 0:
                 for j in range(min_num):
@@ -140,39 +142,49 @@ def compute_total_cost(
     maximum_cc_computing_cost : float,
 ):
     total_cost = 0.0
+    client_vehicle_cost = 0.0
+    server_vehicle_cost = 0.0
+    edge_node_cost = 0.0
+    cloud_cost = 0.0
+    
     for i in range(client_vehicle_number):
         if maxmimum_v2v_transmission_costs[i] != 0:
-            total_cost += v2v_transmission_costs[i] / maxmimum_v2v_transmission_costs[i] 
+            client_vehicle_cost += v2v_transmission_costs[i] / maxmimum_v2v_transmission_costs[i] 
         else:
-            total_cost += 1
+            client_vehicle_cost += 1
         if maximum_v2i_transmission_costs[i] != 0:
-            total_cost += v2i_transmission_costs[i] / maximum_v2i_transmission_costs[i]
+            client_vehicle_cost += v2i_transmission_costs[i] / maximum_v2i_transmission_costs[i]
         else:
-            total_cost += 1
+            client_vehicle_cost += 1
         if maximum_lc_computing_costs[i] != 0:
-            total_cost += lc_computing_costs[i] / maximum_lc_computing_costs[i]
+            client_vehicle_cost += lc_computing_costs[i] / maximum_lc_computing_costs[i]
         else:
-            total_cost += 1
+            client_vehicle_cost += 1
     for i in range(server_vehicle_number):
         if maximum_vc_computing_costs[i] != 0:
-            total_cost += vc_computing_costs[i] / maximum_vc_computing_costs[i]
+            server_vehicle_cost += vc_computing_costs[i] / maximum_vc_computing_costs[i]
         else:
-            total_cost += 1
+            server_vehicle_cost += 1
     for i in range(edge_node_number):
         if maximum_ec_computing_costs[i] != 0:
-            total_cost += ec_computing_costs[i] / maximum_ec_computing_costs[i]
+            edge_node_cost += ec_computing_costs[i] / maximum_ec_computing_costs[i]
         else:
-            total_cost += 1
+            edge_node_cost += 1
         if maximum_i2i_transmission_costs[i] != 0:
-            total_cost += i2i_transmission_costs[i] / maximum_i2i_transmission_costs[i]
+            edge_node_cost += i2i_transmission_costs[i] / maximum_i2i_transmission_costs[i]
         else:
-            total_cost += 1
+            edge_node_cost += 1
         if maximum_i2c_transmission_costs[i] != 0:
-            total_cost += i2c_transmission_costs[i] / maximum_i2c_transmission_costs[i]
+            edge_node_cost += i2c_transmission_costs[i] / maximum_i2c_transmission_costs[i]
         else:
-            total_cost += 1
+            edge_node_cost += 1
     if maximum_cc_computing_cost != 0:
-        total_cost += cc_computing_cost / maximum_cc_computing_cost
+        cloud_cost += cc_computing_cost / maximum_cc_computing_cost
     else:
-        total_cost += 1
+        cloud_cost += 1
+        
+    total_cost = 0.25 * (client_vehicle_cost / (client_vehicle_number * 3)) + \
+        0.25 * (server_vehicle_cost / (server_vehicle_number * 1)) + \
+        0.25 * (edge_node_cost / (edge_node_number * 3)) + \
+        0.25 * cloud_cost
     return total_cost

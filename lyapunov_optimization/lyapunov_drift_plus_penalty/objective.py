@@ -7,7 +7,6 @@ from lyapunov_optimization.virtual_queues.cloud_compjuting_resource_queue import
 
 def compute_phi_t(
     now: int,
-    task_number: int,
     delay_queues: List[delayQueue],
     client_vehicle_number: int,
     lc_queues: List[lc_ressource_queue],
@@ -18,17 +17,29 @@ def compute_phi_t(
     cc_queue: cc_ressource_queue,
 ):
     phi_t = 0.0
-    
-    for i in range(task_number):
+    for i in range(client_vehicle_number):
+        # print("delay_queues[i].get_queue(now): ", delay_queues[i].get_queue(now))
+        # print("delay_queues[i].get_output_by_time(now): ", delay_queues[i].get_output_by_time(now))
+        # print("delay_queues[i].get_input_by_time(now): ", delay_queues[i].get_input_by_time(now))
+        # print("result: ", (delay_queues[i].get_queue(now) - delay_queues[i].get_output_by_time(now) ) * delay_queues[i].get_input_by_time(now))
         phi_t += (delay_queues[i].get_queue(now) - delay_queues[i].get_output_by_time(now)) * \
             delay_queues[i].get_input_by_time(now)
     for i in range(client_vehicle_number):
+        # print("lc_queues[i].get_queue(now): ", lc_queues[i].get_queue(now))
+        # print("lc_queues[i].get_output_by_time(now): ", lc_queues[i].get_output_by_time(now))
+        # print("lc_queues[i].get_input_by_time(now): ", lc_queues[i].get_input_by_time(now))
         phi_t += (lc_queues[i].get_queue(now) - lc_queues[i].get_output_by_time(now)) * \
             lc_queues[i].get_input_by_time(now)
     for i in range(server_vehicle_number):
+        # print("vc_queues[i].get_queue(now): ", vc_queues[i].get_queue(now))
+        # print("vc_queues[i].get_output_by_time(now): ", vc_queues[i].get_output_by_time(now))
+        # print("vc_queues[i].get_input_by_time(now): ", vc_queues[i].get_input_by_time(now))
         phi_t += (vc_queues[i].get_queue(now) - vc_queues[i].get_output_by_time(now)) * \
             vc_queues[i].get_input_by_time(now)
     for i in range(edge_node_number):
+        # print("ec_queues[i].get_queue(now): ", ec_queues[i].get_queue(now))
+        # print("ec_queues[i].get_output_by_time(now): ", ec_queues[i].get_output_by_time(now))
+        # print("ec_queues[i].get_input_by_time(now): ", ec_queues[i].get_input_by_time(now))
         phi_t += (ec_queues[i].get_queue(now) - ec_queues[i].get_output_by_time(now)) * \
             ec_queues[i].get_input_by_time(now)
     phi_t += (cc_queue.get_queue(now) - cc_queue.get_output_by_time(now)) * cc_queue.get_input_by_time(now)

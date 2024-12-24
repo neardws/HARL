@@ -1,4 +1,5 @@
 from lyapunov_optimization.virtual_queues.baseQueue import baseQueue
+from utilities.conversion import cover_GHz_to_Hz
 
 class cc_ressource_queue(baseQueue):
     def __init__(
@@ -17,7 +18,7 @@ class cc_ressource_queue(baseQueue):
     ):  
         input = 0.0
         for index, task in enumerate(task_offloaded_at_cloud):
-            allocated_cycles = self._cloud_computing_capability * \
+            allocated_cycles = cover_GHz_to_Hz(self._cloud_computing_capability) * \
                 computation_resource_allocation_actions["cloud"][index]
             input += allocated_cycles
         return input
@@ -25,4 +26,4 @@ class cc_ressource_queue(baseQueue):
     def compute_output(
         self, 
     ):
-        return self._cloud_computing_capability
+        return cover_GHz_to_Hz(self._cloud_computing_capability)

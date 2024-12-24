@@ -3,6 +3,7 @@ from objects.vehicle_object import vehicle
 from typing import List, Dict
 import numpy as np
 from utilities.time_calculation import compute_transmission_rate, compute_V2V_SINR
+from utilities.conversion import cover_MB_to_bit
 
 class V2VQueue(baseQueue):
     def __init__(
@@ -43,7 +44,7 @@ class V2VQueue(baseQueue):
                         "Server Vehicle " + str(self._server_vehicle_index) and \
                         vehicles_under_V2V_communication_range[i][self._server_vehicle_index][now] == 1:
                         task_index = tasks_of_vehicle_i[j][1]
-                        task_size = tasks_of_vehicle_i[j][2].get_input_data_size()
+                        task_size = cover_MB_to_bit(tasks_of_vehicle_i[j][2].get_input_data_size())
                         task_arrival_rate = self._client_vehicles[i].get_task_arrival_rate_by_task_index(task_index)
                         input += task_size * task_arrival_rate
         return input

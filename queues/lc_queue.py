@@ -1,5 +1,6 @@
 from objects.vehicle_object import vehicle
 from queues.base_queue import baseQueue
+from utilities.conversion import cover_MB_to_bit, cover_GHz_to_Hz
 
 class LCQueue(baseQueue):
     def __init__(
@@ -13,7 +14,8 @@ class LCQueue(baseQueue):
         self._maximum_task_generation_number = maximum_task_generation_number
         super().__init__(time_slot_num, name)
     
-    def compute_input(
+    
+    def compute_input(          
         self, 
         client_vehicle : vehicle,
         task_offloaded_at_client_vehicles,
@@ -21,7 +23,7 @@ class LCQueue(baseQueue):
         input = 0.0
         for index, task in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(self._client_vehicle_index)]):
             task_index = task["task_index"]
-            task_size = task["task"].get_input_data_size()
+            task_size = cover_MB_to_bit(task["task"].get_input_data_size())
             task_arrival_rate = client_vehicle.get_task_arrival_rate_by_task_index(task_index)
             input += task_size * task_arrival_rate
         return input
@@ -35,9 +37,10 @@ class LCQueue(baseQueue):
         output = 0.0
         for index, task in enumerate(task_offloaded_at_client_vehicles["client_vehicle_" + str(self._client_vehicle_index)]):
             task_required_cycles = task["task"].get_requested_computing_cycles()
-            allocated_cycles = client_vehicle_computing_capability * \
-                computation_resource_allocation_actions["client_vehicle_" + str(self._client_vehicle_index)][index]
-            output += allocated_cycles / task_required_cycles
+            task_size = cover_MB_to_bit(task["task"].get_input_data_size())
+            allocated_cycles = cover_GHz_to_Hz(client_vehicle_computing_capability * \
+                computation_resource_allocation_actions["client_vehicle_" + str(self._client_vehicle_index)][index])
+            output += allocated_cycles / task_required_cycles * task_size
         return output
     
     
