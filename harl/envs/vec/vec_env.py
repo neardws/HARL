@@ -60,7 +60,6 @@ class VECEnv:
         self._max_task_arrival_rate_of_vehicles: float = self.args["max_task_arrival_rate_of_vehicles"]
         self._vehicle_distribution: str = self.args["vehicle_distribution"]
         self._server_vehicle_probability: float = self.args["server_vehicle_probability"]
-        self._maximum_task_generation_number_of_vehicles = 1
         self._task_ids_rate: float = self.args["task_ids_rate"]
         
         self._edge_num: int = self.args["edge_num"]
@@ -99,11 +98,6 @@ class VECEnv:
         self._cloud_seed = np.random.randint(0, 10000)
         
         self._penalty_weight = self.args["penalty_weight"]
-        
-        self._maximum_task_offloaded_at_client_vehicle_number = 10
-        self._maximum_task_offloaded_at_server_vehicle_number = 20
-        self._maximum_task_offloaded_at_edge_node_number = 30
-        self._maximum_task_offloaded_at_cloud_number = 40
                         
         self._task_offloaded_at_client_vehicles = {}
         self._task_offloaded_at_server_vehicles = {}
@@ -198,6 +192,22 @@ class VECEnv:
         self._client_vehicles, self._server_vehicles = get_client_and_server_vehicles(
             vehicles=self._vehicles,
         )
+        
+        self._maximum_task_generation_number_of_vehicles, self._average_task_generation_numbers, \
+            self._sum_task_generation_numbers= self.obtain_task_generation_numbers(
+            client_vehicles = self._client_vehicles,
+        )
+        
+        # print("self._maximum_task_generation_number_of_vehicles: ", self._maximum_task_generation_number_of_vehicles)    
+        # print("self._average_task_generation_numbers: ", self._average_task_generation_numbers)
+        # print("self._sum_task_generation_numbers: ", self._sum_task_generation_numbers)
+        
+        
+        self._maximum_task_offloaded_at_client_vehicle_number, self._maximum_task_offloaded_at_server_vehicle_number, \
+            self._maximum_task_offloaded_at_edge_node_number, self._maximum_task_offloaded_at_cloud_number = self.obtain_offloading_numbers(
+                average_task_generation_numbers=self._average_task_generation_numbers,
+                sum_task_generation_numbers=self._sum_task_generation_numbers,
+            )
         
         self._client_vehicle_num = len(self._client_vehicles)
         self._server_vehicle_num = len(self._server_vehicles)
@@ -434,6 +444,73 @@ class VECEnv:
         ) 
         
         self._done = False
+        
+    def obtain_task_generation_numbers(
+        self,
+        client_vehicles: List[vehicle],
+    ):
+        maximum_task_generation_number = 0
+        average_task_generation_numbers = np.zeros((self._slot_length, ))
+        sum_task_generation_numbers = np.zeros((self._slot_length, ))
+        for t in range(self._slot_length):
+            for vehicle in client_vehicles:
+                sum_task_generation_numbers[t] += len(vehicle.get_tasks_by_time(t))
+                average_task_generation_numbers[t] += len(vehicle.get_tasks_by_time(t))
+                task_generation_number = len(vehicle.get_tasks_by_time(t))
+                if task_generation_number > maximum_task_generation_number:
+                    maximum_task_generation_number = task_generation_number
+            average_task_generation_numbers[t] /= len(client_vehicles)
+        average_number = np.mean(average_task_generation_numbers)
+        maximum_task_generation_number = int((average_number * 2 + maximum_task_generation_number) / 3)
+        return maximum_task_generation_number, average_task_generation_numbers, sum_task_generation_numbers
+        
+    def obtain_offloading_numbers(
+        self,
+        average_task_generation_numbers: np.ndarray,
+        sum_task_generation_numbers: np.ndarray,
+    ):
+        maximum_task_offloaded_at_client_vehicle_number = 0
+        maximum_task_offloaded_at_server_vehicle_number = 0
+        maximum_task_offloaded_at_edge_node_number = 0
+        maximum_task_offloaded_at_cloud_number = 0
+        tasks_num = 0
+        maximum_sum = 0
+        average_vehicle_task_num = 0
+        for t in range(self._slot_length):
+            tasks_num += sum_task_generation_numbers[t]
+            average_vehicle_task_num += average_task_generation_numbers[t]
+            if sum_task_generation_numbers[t] > maximum_sum:
+                maximum_sum = sum_task_generation_numbers[t]
+        average_sum = tasks_num / self._slot_length
+        average_vehicle_task_num /= self._slot_length
+        
+        # print("task_num: ", tasks_num)
+        # print("average_sum: ", average_sum)
+        # print("maximum_sum: ", maximum_sum)
+        # print("average_vehicle_task_num: ", average_vehicle_task_num)
+        
+        maximum_task_offloaded_at_client_vehicle_number = int(average_vehicle_task_num * 0.5)
+        if maximum_task_offloaded_at_client_vehicle_number == 0:
+            maximum_task_offloaded_at_client_vehicle_number = 1
+        
+        maximum_task_offloaded_at_server_vehicle_number = int(average_vehicle_task_num * 3)
+        if maximum_task_offloaded_at_server_vehicle_number == 0:
+            maximum_task_offloaded_at_server_vehicle_number = 1
+        
+        maximum_task_offloaded_at_edge_node_number = int((average_sum * 0.25 + maximum_sum  * 0.25) / 2)
+        if maximum_task_offloaded_at_edge_node_number == 0:
+            maximum_task_offloaded_at_edge_node_number = 1
+            
+        maximum_task_offloaded_at_cloud_number = int((average_sum * 0.2 + maximum_sum  * 0.2) / 2)
+        if maximum_task_offloaded_at_cloud_number == 0:
+            maximum_task_offloaded_at_cloud_number = 1
+        
+        # print("maximum_task_offloaded_at_client_vehicle_number: ", maximum_task_offloaded_at_client_vehicle_number)
+        # print("maximum_task_offloaded_at_server_vehicle_number: ", maximum_task_offloaded_at_server_vehicle_number)
+        # print("maximum_task_offloaded_at_edge_node_number: ", maximum_task_offloaded_at_edge_node_number)
+        # print("maximum_task_offloaded_at_cloud_number: ", maximum_task_offloaded_at_cloud_number)
+        
+        return maximum_task_offloaded_at_client_vehicle_number, maximum_task_offloaded_at_server_vehicle_number, maximum_task_offloaded_at_edge_node_number, maximum_task_offloaded_at_cloud_number
         
     def is_done(self):
         return self._done

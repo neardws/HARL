@@ -84,10 +84,10 @@ class vehicle(object):
     def get_communication_range(self) -> float:
         return self._communication_range
     
-    def get_tasks(self) -> List[Tuple]:
+    def get_tasks(self) -> List[task]:
         return self._tasks
     
-    def get_tasks_by_time(self, now : int) -> List[Tuple]:
+    def get_tasks_by_time(self, now : int) -> List[task]:
         if self._task_ids_num == 0:
             return []
         return [task for task in self._tasks if task[0] == now]

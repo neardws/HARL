@@ -30,7 +30,6 @@ min_task_arrival_rate_of_vehicles: 0.5            # tasks/sec
 max_task_arrival_rate_of_vehicles: 1.0            # tasks/sec
 vehicle_distribution: "uniform"
 server_vehicle_probability: 0.3
-# maximum_task_generation_number_of_vehicles: 0     # TODO TBD
 task_ids_rate: 0.1                                # 10%
 
 edge_num: 9
@@ -62,7 +61,4 @@ seed: 264
 
 penalty_weight: 100000.0                          # 1 x 10^5
 
-# maximum_task_offloaded_at_client_vehicle_number: 0    # TODO TBD
-# maximum_task_offloaded_at_server_vehicle_number: 0    # TODO TBD
-# maximum_task_offloaded_at_edge_node_number: 0         # TODO TBD
-# maximum_task_offloaded_at_cloud_number: 0             # TODO TBD
+
