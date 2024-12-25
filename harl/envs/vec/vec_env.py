@@ -432,6 +432,11 @@ class VECEnv:
             cloud_computing_capability=self._cloud.get_computing_capability(),
         ) 
         
+        self._done = False
+        
+    def is_done(self):
+        return self._done
+    
     def get_n_agents(self):
         return self.n_agents
     
@@ -478,7 +483,10 @@ class VECEnv:
                 vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
                 now = self.cur_step,
             )
-        
+        # print("task_offloaded_at_client_vehicles: ", self._task_offloaded_at_client_vehicles)
+        # print("task_offloaded_at_server_vehicles: ", self._task_offloaded_at_server_vehicles)
+        # print("task_offloaded_at_edge_nodes: ", self._task_offloaded_at_edge_nodes)
+        # print("task_offloaded_at_cloud: ", self._task_offloaded_at_cloud)
         end_time = time.time()
         print("obtain_tasks_offloading_conditions time: ", end_time - now_time)    
         
@@ -522,6 +530,7 @@ class VECEnv:
             for _ in range(self.n_agents):
                 info[_]["bad_transition"] = True
             dones = [True for _ in range(self.n_agents)]
+            self._done = True
         
         obs = self.obtain_observation()
         env_state = self.state()
@@ -540,6 +549,7 @@ class VECEnv:
         )
 
     def reset(self):
+        self._done = False
         self._seed += 1
         self.cur_step = 0
         
@@ -579,7 +589,7 @@ class VECEnv:
         self._i2c_queue_backlogs = np.zeros((self._slot_length, ))
         self._cc_queue_backlogs = np.zeros((self._slot_length, ))
         
-        for _ in range(self._task_num):
+        for _ in range(self._client_vehicle_num):
             self._delay_queues[_].reset()
         for _ in range(self._client_vehicle_num):
             self._local_computing_resource_queues[_].reset()
@@ -630,36 +640,54 @@ class VECEnv:
             print("update_lc_queues time: ", end_time - now_time)
             
             # update the v2v and vc queues
-            now_time = time.time()
+            v2v_vc_now_time = time.time()
+            v2v_time = 0.0
+            v2v_input_time = 0.0
+            v2v_output_time = 0.0
+            v2v_update_time = 0.0
+            vc_time = 0.0
             for server_vehicle_index in range(self._server_vehicle_num):
+                v2v_now_time = time.time()
+                now_time = time.time()
                 v2v_queue_input = self._v2v_queues[server_vehicle_index].compute_input(
-                    task_offloading_actions=task_offloading_actions,
-                    vehicles_under_V2V_communication_range=self._vehicles_under_V2V_communication_range,
-                    now=self.cur_step,
+                    task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
                 )
+                end_time = time.time()
+                v2v_input_time += end_time - now_time
+                
+                now_time = time.time()
                 v2v_queue_output = self._v2v_queues[server_vehicle_index].compute_output(
-                    task_offloading_actions=task_offloading_actions,
+                    task_offloaded_at_server_vehicles=self._task_offloaded_at_server_vehicles,
                     transmission_power_allocation_actions=transmission_power_allocation_actions,
-                    vehicles_under_V2V_communication_range=self._vehicles_under_V2V_communication_range,
                     now=self.cur_step,
                 )
+                end_time = time.time()
+                v2v_output_time += end_time - now_time
+                
                 # print("v2v_queue_input: ", v2v_queue_input)
                 # print("v2v_queue_output: ", v2v_queue_output)
+                now_time = time.time()
                 self._v2v_queues[server_vehicle_index].update(
                     input=v2v_queue_input,
                     output=v2v_queue_output,
                     time_slot=self.cur_step,
                 )
+                end_time = time.time()
+                v2v_update_time += end_time - now_time
+                
                 # print("*" * 100)
                 # print("self._v2v_queue_backlogs:", self._v2v_queue_backlogs)
                 # print("after")
                 self._v2v_queue_backlogs[server_vehicle_index][self.cur_step + 1] = self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
                 
+                
                 # print("self._v2v_queue_backlogs:", self._v2v_queue_backlogs)
                 if self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_v2v_queue_length[server_vehicle_index]:
                     self._maximum_v2v_queue_length[server_vehicle_index] = self._v2v_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
+                v2v_end_time = time.time()
+                v2v_time += v2v_end_time - v2v_now_time
                 
-                
+                now_time = time.time()
                 vc_queue_input = self._vc_queues[server_vehicle_index].compute_input(
                     v2v_transmission_output=v2v_queue_output,
                 )
@@ -678,12 +706,23 @@ class VECEnv:
                 self._vc_queue_backlogs[server_vehicle_index][self.cur_step + 1] = self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
                 if self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_vc_queue_length[server_vehicle_index]:
                     self._maximum_vc_queue_length[server_vehicle_index] = self._vc_queues[server_vehicle_index].get_queue(time_slot=self.cur_step + 1)
-            end_time = time.time()
-            print("update_v2v_vc_queues time: ", end_time - now_time)
+                end_time = time.time()
+                vc_time += end_time - now_time
+            v2v_vc_end_time = time.time()
+            print("v2v_input_time: ", v2v_input_time)
+            print("v2v_output_time: ", v2v_output_time)
+            print("v2v_update_time: ", v2v_update_time)
+            print("update_v2v_queues time: ", v2v_time)
+            print("update_vc_queues time: ", vc_time)
+            print("update_v2v_vc_queues time: ", v2v_vc_end_time - v2v_vc_now_time)
             
             # update the v2i, i2i and ec queues
-            now_time = time.time()
+            v2i_i2i_ec_now_time = time.time()
+            v2i_time = 0.0
+            i2i_time = 0.0
+            ec_time = 0.0
             for edge_node_index in range(self._edge_num):
+                now_time = time.time()
                 v2i_queue_input = self._v2i_queues[edge_node_index].compute_input(
                     task_offloading_actions=task_offloading_actions,
                     vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
@@ -705,7 +744,10 @@ class VECEnv:
                 self._v2i_queue_backlogs[edge_node_index][self.cur_step + 1] = self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 if self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_v2i_queue_length[edge_node_index]:
                     self._maximum_v2i_queue_length[edge_node_index] = self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
-                
+                end_time = time.time()
+                v2i_time += end_time - now_time
+                 
+                now_time = time.time()                  
                 i2i_queue_input = self._i2i_queues[edge_node_index].compute_input(
                     task_offloading_actions=task_offloading_actions,
                     transmission_power_allocation_actions=transmission_power_allocation_actions,
@@ -728,7 +770,10 @@ class VECEnv:
                 self._i2i_queue_backlogs[edge_node_index][self.cur_step + 1] = self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 if self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_i2i_queue_length[edge_node_index]:
                     self._maximum_i2i_queue_length[edge_node_index] = self._i2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
+                end_time = time.time()
+                i2i_time += end_time - now_time
                 
+                now_time = time.time()
                 ec_queue_input = self._ec_queues[edge_node_index].compute_input(
                     v2i_transmission_output=v2i_queue_output,
                     i2i_transmission_output=i2i_queue_output,
@@ -748,8 +793,14 @@ class VECEnv:
                 self._ec_queue_backlogs[edge_node_index][self.cur_step + 1] = self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 if self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1) > self._maximum_ec_queue_length[edge_node_index]:
                     self._maximum_ec_queue_length[edge_node_index] = self._ec_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
-            end_time = time.time()
-            print("update_v2i_i2i_ec_queues time: ", end_time - now_time)
+                end_time = time.time()
+                ec_time += end_time - now_time
+                
+            v2i_i2i_ec_end_time = time.time()
+            print("v2i_time: ", v2i_time)
+            print("i2i_time: ", i2i_time)
+            print("ec_time: ", ec_time)
+            print("update_v2i_i2i_ec_queues time: ", v2i_i2i_ec_end_time - v2i_i2i_ec_now_time)
             
             # update the i2c and cc queues
             now_time = time.time()
@@ -921,7 +972,7 @@ class VECEnv:
             transmission_power_allocation_actions=transmission_power_allocation_actions,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
         )
-        print("total_cost: ", total_cost)
+        # print("total_cost: ", total_cost)
         
         # print("delay_queues: ", self._delay_queues)
         # print("lc_queues: ", self._local_computing_resource_queues)
@@ -930,7 +981,7 @@ class VECEnv:
         
         phi_t = self.compute_total_phi_t()
         
-        print("phi_t: ", phi_t)
+        # print("phi_t: ", phi_t)
         
         reward = self.transform_reward(
             total_cost=total_cost,
@@ -1805,13 +1856,15 @@ class VECEnv:
                                 task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
                     elif task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Edge Node"):
                         edge_node_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
-                        if any(vehicles_under_V2I_communication_range[i][e][now] == 1 for e in range(self._edge_num)):
-                            if len(task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]) < self._maximum_task_offloaded_at_edge_node_number:
-                                task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
+                        for e in range(self._edge_num):
+                            if vehicles_under_V2I_communication_range[i][e][now] == 1:
+                                if len(task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]) < self._maximum_task_offloaded_at_edge_node_number:
+                                    task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
                     else:
-                        if any(vehicles_under_V2I_communication_range[i][e][now] == 1 for e in range(self._edge_num)):
-                            if len(task_offloaded_at_cloud["cloud"]) < self._maximum_task_offloaded_at_cloud_number:
-                                task_offloaded_at_cloud["cloud"].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
+                        for e in range(self._edge_num):
+                            if vehicles_under_V2I_communication_range[i][e][now] == 1:
+                                if len(task_offloaded_at_cloud["cloud"]) < self._maximum_task_offloaded_at_cloud_number:
+                                    task_offloaded_at_cloud["cloud"].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
                                 
         return task_offloaded_at_client_vehicles, task_offloaded_at_server_vehicles, task_offloaded_at_edge_nodes, task_offloaded_at_cloud
     
