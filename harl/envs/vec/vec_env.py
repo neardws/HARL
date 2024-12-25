@@ -724,14 +724,11 @@ class VECEnv:
             for edge_node_index in range(self._edge_num):
                 now_time = time.time()
                 v2i_queue_input = self._v2i_queues[edge_node_index].compute_input(
-                    task_offloading_actions=task_offloading_actions,
-                    vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
-                    now=self.cur_step,
+                    task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
                 )
                 v2i_queue_output = self._v2i_queues[edge_node_index].compute_output(
-                    task_offloading_actions=task_offloading_actions,
+                    task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
                     transmission_power_allocation_actions=transmission_power_allocation_actions,
-                    vehicles_under_V2I_communication_range=self._vehicles_under_V2I_communication_range,
                     now=self.cur_step,
                 )
                 # print("v2i_queue_input: ", v2i_queue_input)
