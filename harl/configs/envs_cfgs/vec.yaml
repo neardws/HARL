@@ -49,7 +49,7 @@ cloud_computing_capability: 1000.0                # GHz
 cloud_storage_capability: 1000.0                  # MB
 min_I2C_wired_bandwidth: 100.0                    # Mbps
 max_I2C_wired_bandwidth: 500.0                    # Mbps
-I2C_transmission_rate: 500.0                      # Mbps
+I2C_transmission_rate: 1000.0                      # Mbps
 I2C_propagation_speed: 225000.0                   # km/s about 3/4 speed of light
 cloud_distribution: "uniform"
 
