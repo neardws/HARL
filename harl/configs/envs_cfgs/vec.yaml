@@ -19,8 +19,8 @@ vehicular_trajectories_processing_start_time: "2005-04-13 17:00:00"
 vehicular_trajectories_processing_selection_way: "max_duration"
 vehicular_trajectories_processing_filling_way: "linear"
 vehicular_trajectories_processing_chunk_size: 100000
-min_computing_capability_of_vehicles: 1.0         # GHz
-max_computing_capability_of_vehicles: 5.0         # GHz
+min_computing_capability_of_vehicles: 10.0         # GHz
+max_computing_capability_of_vehicles: 50.0         # GHz
 min_storage_capability_of_vehicles: 5.0           # MB
 max_storage_capability_of_vehicles: 10.0          # MB
 min_transmission_power_of_vehicles: 500.0         # mW

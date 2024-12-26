@@ -543,11 +543,13 @@ class VECEnv:
         # print("vehicles_under_V2V_communication_range: ", self._vehicles_under_V2V_communication_range)
         # print("vehicles_under_V2I_communication_range: ", self._vehicles_under_V2V_communication_range)
         
-        now_time = time.time()
+        # now_time = time.time()
+        
+        processed_actions = self.process_actions(actions)   # covert the actions into the value of [0, 1]
         
         task_offloading_actions, transmission_power_allocation_actions, \
             computation_resource_allocation_actions = self.transform_actions(
-                actions=actions,
+                actions=processed_actions,
                 vehicles_under_V2V_communication_range=self._vehicles_under_V2V_communication_range,)
         
         # end_time = time.time()
@@ -614,8 +616,8 @@ class VECEnv:
         env_state = self.state()
         s_obs = self.repeat(env_state)
         rewards = [[reward]] * self.n_agents
-        end_time = time.time()
-        print("step time: ", end_time - now_time)
+        # end_time = time.time()
+        # print("step time: ", end_time - now_time)
         
         return (
             obs,
@@ -767,6 +769,7 @@ class VECEnv:
                 
                 # now_time = time.time()
                 vc_queue_input = self._vc_queues[server_vehicle_index].compute_input(
+                    v2v_transmission_input=v2v_queue_input,
                     v2v_transmission_output=v2v_queue_output,
                 )
                 vc_queue_output = self._vc_queues[server_vehicle_index].compute_output(
@@ -848,7 +851,9 @@ class VECEnv:
                 
                 # now_time = time.time()
                 ec_queue_input = self._ec_queues[edge_node_index].compute_input(
+                    v2i_transmission_input=v2i_queue_input,
                     v2i_transmission_output=v2i_queue_output,
+                    i2i_transmission_input=i2i_queue_input,
                     i2i_transmission_output=i2i_queue_output,
                 )
                 ec_queue_output = self._ec_queues[edge_node_index].compute_output(
@@ -908,6 +913,7 @@ class VECEnv:
             
             # now_time = time.time()
             cc_queue_input = self._cc_queue.compute_input(
+                i2c_transmission_input=i2c_queue_input,
                 i2c_transmission_output=i2c_queue_output,
             )
             cc_queue_output = self._cc_queue.compute_output(
@@ -1069,6 +1075,12 @@ class VECEnv:
         penalty_weight: float,
     ):
         # return the reward in the range of [0, 1]
+        if total_cost < 0 or total_cost > 1:
+            print("total_cost: ", total_cost)
+            raise ValueError("The total cost should be in the range of [0, 1]")
+        if phi_t < 0 or phi_t > 1:
+            print("phi_t: ", phi_t)
+            raise ValueError("The phi_t should be in the range of [0, 1]")
         reward = - penalty_weight * total_cost - phi_t   # reward in the range of [-(penalty_weight + 1), 0]
         reward = reward + (penalty_weight + 1)           # Shift to [0, penalty_weight + 1]
         reward = reward / (penalty_weight + 1)           # Normalize to [0, 1]
@@ -1817,6 +1829,26 @@ class VECEnv:
 
     def close(self):
         pass
+    
+    def process_actions(
+        self,
+        actions,
+    ):
+        processed_actions = []
+        
+        for i in range(self.n_agents):
+            processed_action = np.zeros((self._max_action,))
+            for j in range(self._max_action):
+                # 将 actions[i][j] 从 [-1, 1] 范围映射到 [0, 1]
+                normalized_action = (actions[i][j] + 1) / 2
+                # 确保 normalized_action 在 [0, 1] 范围内
+                normalized_action = max(0, min(1, normalized_action))  
+                processed_action[j] = normalized_action
+                
+            processed_actions.append(processed_action)
+        
+        return processed_actions
+        
         
     def transform_actions(
         self, 
@@ -1859,11 +1891,12 @@ class VECEnv:
                 client_vehicle_index = i - self._client_vehicle_num
                 computation_resource_allocation = true_action[0:self._maximum_task_offloaded_at_client_vehicle_number]
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("client vehicle computation_resource_allocation: ", computation_resource_allocation)
+                print("client vehicle computation_resource_allocation: ", computation_resource_allocation)
                 # print("client vehicle computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 # print("sum_normalized: ", sum(computation_resource_allocation_normalized))
                 transmission_power_allocation = true_action[-2:]
                 transmission_power_allocation_normalized = self.normalize(transmission_power_allocation)
+                print("transmission_power_allocation: ", transmission_power_allocation)
                 # print("transmission_power_allocation_normalized: ", transmission_power_allocation_normalized)
                 # V2V transmission power allocation + V2I transmission power allocation
                 transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)] = transmission_power_allocation_normalized
@@ -1872,20 +1905,20 @@ class VECEnv:
                 server_vehicle_index = i - self._client_vehicle_num * 2
                 computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("server vehicle computation_resource_allocation: ", computation_resource_allocation)
+                print("server vehicle computation_resource_allocation: ", computation_resource_allocation)
                 # print("server vehicle computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["server_vehicle_" + str(server_vehicle_index)] = computation_resource_allocation_normalized
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
                 edge_node_index = i - self._client_vehicle_num * 2 - self._server_vehicle_num
                 computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("edge node computation_resource_allocation: ", computation_resource_allocation)
+                print("edge node computation_resource_allocation: ", computation_resource_allocation)
                 # print("edge node computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["edge_node_" + str(edge_node_index)] = computation_resource_allocation_normalized
             else:
                 computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("cloud computation_resource_allocation: ", computation_resource_allocation)
+                print("cloud computation_resource_allocation: ", computation_resource_allocation)
                 # print("cloud computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["cloud"] = computation_resource_allocation_normalized
         return task_offloading_actions, transmission_power_allocation_actions, computation_resource_allocation_actions
@@ -1972,22 +2005,28 @@ class VECEnv:
         for i in range(self.n_agents):
             if i < self._client_vehicle_num:
                 # task offloading decision
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
+                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
+                # TODO: the action space value bounds are not working
+                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2:
                 # transmission power allocation and computation resource allocation
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
+                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
+                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
+                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
             else:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_action,), dtype=np.float32))
+                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
                 
         return action_space
     
@@ -1999,22 +2038,22 @@ class VECEnv:
         for i in range(self.n_agents):
             if i < self._client_vehicle_num:
                 # task offloading decision
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2:
                 # transmission power allocation and computation resource allocation
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_action2,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_action2,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._server_vehicle_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._server_vehicle_action,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._edge_node_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._edge_node_action,), dtype=np.float32))
             else:
                 # computation resource allocation
                 # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0, high=1, shape=(self._cloud_action,), dtype=np.float32))
+                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._cloud_action,), dtype=np.float32))
                 
         return action_space
     
@@ -2082,15 +2121,15 @@ class VECEnv:
         observation_space = []
         for i in range(self.n_agents):
             if i < self._client_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation,), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
             else:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._max_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
         return observation_space
     
     def generate_true_observation_space(self):
@@ -2101,15 +2140,15 @@ class VECEnv:
         
         for i in range(self.n_agents):
             if i < self._client_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_observation,), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_observation,), dtype=np.float32))
             elif i < self._client_vehicle_num * 2:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._client_vehicle_observation_2, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_observation_2, ), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._server_vehicle_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._server_vehicle_observation, ), dtype=np.float32))
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._edge_node_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._edge_node_observation, ), dtype=np.float32))
             else:
-                observation_space.append(gym.spaces.Box(low=0, high=1, shape=(self._cloud_observation, ), dtype=np.float32))
+                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._cloud_observation, ), dtype=np.float32))
         return observation_space
     
     def generate_state_space(self):
@@ -2129,7 +2168,7 @@ class VECEnv:
             self._client_vehicle_num *self._edge_num + \
             3 *self._edge_num + \
             2
-        return gym.spaces.Box(low=0, high=1, shape=(state_space_number, ), dtype=np.float32)
+        return gym.spaces.Box(low=0.0, high=1.0, shape=(state_space_number, ), dtype=np.float32)
     
     def repeat(self, a):
         return [a for _ in range(self.n_agents)]

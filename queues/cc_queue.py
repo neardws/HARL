@@ -11,9 +11,10 @@ class CCQueue(baseQueue):
     
     def compute_input(
         self, 
+        i2c_transmission_input,
         i2c_transmission_output,
     ):
-        input = i2c_transmission_output
+        input = min(i2c_transmission_input, i2c_transmission_output)
         return input
     
     def compute_output(

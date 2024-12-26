@@ -3,7 +3,7 @@ from objects.vehicle_object import vehicle
 from typing import List, Dict
 import numpy as np
 from utilities.time_calculation import compute_transmission_rate, compute_V2I_SINR
-from utilities.conversion import cover_Mbps_to_bps
+from utilities.conversion import cover_Mbps_to_bps, cover_kms_to_ms
 
 class I2IQueue(baseQueue):
     def __init__(
@@ -98,7 +98,7 @@ class I2IQueue(baseQueue):
             edge_node_index = task["edge_index"]
             if edge_node_index != self._edge_node_index:
                 transmission_rate = cover_Mbps_to_bps(self._I2I_transmission_rate)
-                propagation_speed = self._I2I_propagation_speed
+                propagation_speed = cover_kms_to_ms(self._I2I_propagation_speed)
                 distance = distance_matrix_between_edge_nodes[self._edge_node_index][edge_node_index]
                 depature_rate = self.obtain_departure_rate(
                     transmission_rate=transmission_rate,

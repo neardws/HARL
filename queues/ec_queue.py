@@ -13,10 +13,13 @@ class ECQueue(baseQueue):
     
     def compute_input(
         self, 
+        v2i_transmission_input,
         v2i_transmission_output,
+        i2i_transmission_input,
         i2i_transmission_output, 
     ):
-        input = v2i_transmission_output + i2i_transmission_output
+        input = min(v2i_transmission_input, v2i_transmission_output) + \
+            min(i2i_transmission_input, i2i_transmission_output)
         return input
     
     def compute_output(

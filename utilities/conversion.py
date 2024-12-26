@@ -44,3 +44,9 @@ def cover_W_to_mW(W: float) -> float:
 
 def cover_mW_to_W(mW: float) -> float:
     return mW / 1000
+
+def cover_kms_to_ms(kms: float) -> float:
+    return kms * 1000
+
+def cover_ms_to_kms(ms: float) -> float:
+    return ms / 1000

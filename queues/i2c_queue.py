@@ -3,7 +3,7 @@ from objects.vehicle_object import vehicle
 from typing import List, Dict
 import numpy as np
 from utilities.time_calculation import compute_transmission_rate, compute_V2I_SINR
-from utilities.conversion import cover_Mbps_to_bps
+from utilities.conversion import cover_Mbps_to_bps, cover_kms_to_ms
 
 class I2CQueue(baseQueue):
     def __init__(
@@ -94,7 +94,7 @@ class I2CQueue(baseQueue):
         for index, task in enumerate(task_offloaded_at_cloud["cloud"]):
             edge_node_index = task["edge_index"]
             transmission_rate = cover_Mbps_to_bps(self._I2C_transmission_rate)
-            propagation_speed = self._I2C_propagation_speed
+            propagation_speed = cover_kms_to_ms(self._I2C_propagation_speed)
             distance = distance_matrix_between_edge_nodes_and_the_cloud[edge_node_index]
             depature_rate = self.obtain_departure_rate(
                 transmission_rate=transmission_rate,

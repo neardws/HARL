@@ -14,9 +14,10 @@ class VCQueue(baseQueue):
     
     def compute_input(
         self, 
+        v2v_transmission_input,
         v2v_transmission_output, 
     ):
-        input = v2v_transmission_output
+        input = min(v2v_transmission_input, v2v_transmission_output)
         return input
     
     def compute_output(
