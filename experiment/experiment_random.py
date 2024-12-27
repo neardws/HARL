@@ -19,7 +19,7 @@ if __name__ == '__main__':
     max_action = env.get_max_action()
     n_agents = env.get_n_agents()    
     
-    for _ in range(120):
+    for _ in range(3000):
         if env.is_done():
             env.reset()
         env.step(

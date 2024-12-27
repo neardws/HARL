@@ -32,6 +32,7 @@ class VECEnv:
         
         self.args = copy.deepcopy(args)
         
+        self._episode_index = 0
         self.cur_step = 0
 
         self._slot_length: int = self.args["slot_length"]
@@ -445,6 +446,64 @@ class VECEnv:
         
         self._done = False
         
+        self._resutls_file_name = "/root/HARL/results/" \
+            + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        
+        self.init_results_to_store()
+        
+    
+    def init_results_to_store(self):
+        
+         # the results need to be stored
+        
+        self._reward = 0.0
+        self._rewards = np.zeros((self._slot_length, ))
+        self._costs = np.zeros((self._slot_length, ))
+        self._lc_costs = np.zeros((self._slot_length, ))
+        self._v2v_costs = np.zeros((self._slot_length, ))
+        self._vc_costs = np.zeros((self._slot_length, ))
+        self._v2i_costs = np.zeros((self._slot_length, ))
+        self._i2i_costs = np.zeros((self._slot_length, ))
+        self._ec_costs = np.zeros((self._slot_length, ))
+        self._i2c_costs = np.zeros((self._slot_length, ))
+        self._cc_costs = np.zeros((self._slot_length, ))
+        
+        self._total_delay_queues = np.zeros((self._slot_length, ))
+        self._lc_delay_queues = np.zeros((self._slot_length, ))
+        self._v2v_delay_queues = np.zeros((self._slot_length, ))
+        self._vc_delay_queues = np.zeros((self._slot_length, ))
+        self._v2i_delay_queues = np.zeros((self._slot_length, ))
+        self._i2i_delay_queues = np.zeros((self._slot_length, ))
+        self._ec_delay_queues = np.zeros((self._slot_length, ))
+        self._i2c_delay_queues = np.zeros((self._slot_length, ))
+        self._cc_delay_queues = np.zeros((self._slot_length, ))
+        
+        self._lc_res_queues = np.zeros((self._slot_length, ))
+        self._vc_res_queues = np.zeros((self._slot_length, ))
+        self._ec_res_queues = np.zeros((self._slot_length, ))
+        self._cc_res_queues = np.zeros((self._slot_length, ))
+        
+        self._task_num_sum = 0
+        self._task_nums = np.zeros((self._slot_length, ))
+        self._task_uploaded_at_edge = np.zeros((self._slot_length, ))
+        self._task_processed_at_local = np.zeros((self._slot_length, ))
+        self._task_processed_at_vehicle = np.zeros((self._slot_length, ))
+        self._task_processed_at_edge = np.zeros((self._slot_length, ))
+        self._task_processed_at_local_edge = np.zeros((self._slot_length, ))
+        self._task_processed_at_other_edge = np.zeros((self._slot_length, ))
+        self._task_processed_at_cloud = np.zeros((self._slot_length, ))
+        self._task_successfully_processed_num = np.zeros((self._slot_length, ))
+        
+        self._ave_task_num_of_each_client_vehicle = np.zeros((self._slot_length, ))
+        self._avg_task_uploaded_at_each_edge = np.zeros((self._slot_length,))
+        self._avg_task_processed_at_local = np.zeros((self._slot_length, ))
+        self._avg_task_processed_at_vehicle = np.zeros((self._slot_length, ))
+        self._avg_task_processed_at_edge = np.zeros((self._slot_length, ))
+        self._avg_task_processed_at_local_edge = np.zeros((self._slot_length, ))
+        self._avg_task_processed_at_other_edge = np.zeros((self._slot_length, ))
+        self._avg_task_processed_at_cloud = np.zeros((self._slot_length, ))
+        
+    
     def obtain_task_generation_numbers(
         self,
         client_vehicles: List[vehicle],
@@ -536,7 +595,6 @@ class VECEnv:
     def step(self, actions):
         # transform the actions into the task offloading actions, transmission power allocation actions, computation resource allocation actions
         
-        # one esipode is about 5 mins, which contains 100 slots
         print("*" * 50)
         print("cur_step: ", self.cur_step)
         
@@ -572,6 +630,19 @@ class VECEnv:
         # print("obtain_tasks_offloading_conditions time: ", end_time - now_time)    
         
         # now_time = time.time()
+        reward = self.compute_reward(
+            task_offloading_actions=task_offloading_actions,
+            transmission_power_allocation_actions=transmission_power_allocation_actions,
+            computation_resource_allocation_actions=computation_resource_allocation_actions,
+        )
+        
+        self._reward += reward
+        self._rewards[self.cur_step] = reward
+        print("reward: ", reward)
+        
+        self.update_self_queues()
+        
+        # now_time = time.time()
         self.update_actural_queues(
             transmission_power_allocation_actions=transmission_power_allocation_actions,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
@@ -586,14 +657,7 @@ class VECEnv:
         )
         # end_time = time.time()
         # print("update_virtual_queues time: ", end_time - now_time)
-        
-        # now_time = time.time()
-        reward = self.compute_reward(
-            task_offloading_actions=task_offloading_actions,
-            transmission_power_allocation_actions=transmission_power_allocation_actions,
-            computation_resource_allocation_actions=computation_resource_allocation_actions,
-        )
-        print("reward: ", reward)
+
         # end_time = time.time()
         # print("compute_reward time: ", end_time - now_time)
         
@@ -602,16 +666,21 @@ class VECEnv:
         self.cur_step += 1
         
         if self.cur_step >= self._slot_length:
-            self.cur_step = self._slot_length - 1
+            self.cur_step = self._slot_length
         
         dones = [False for _ in range(self.n_agents)]
         info = [{"bad_transition": False} for _ in range(self.n_agents)]
-        if self.cur_step == self._slot_length - 1:
+        if self.cur_step == self._slot_length:
             for _ in range(self.n_agents):
                 info[_]["bad_transition"] = True
             dones = [True for _ in range(self.n_agents)]
             self._done = True
         
+        if self._done:
+            self.save_results()
+            self._episode_index += 1
+            self.reset()
+            
         obs = self.obtain_observation()
         env_state = self.state()
         s_obs = self.repeat(env_state)
@@ -627,7 +696,72 @@ class VECEnv:
             info,
             self.get_avail_actions(),
         )
-
+        
+    def update_self_queues(self):
+        delay_queue = 0.0
+        lc_delay_queue = 0.0
+        v2v_delay_queue = 0.0
+        vc_delay_queue = 0.0
+        v2i_delay_queue = 0.0
+        i2i_delay_queue = 0.0
+        ec_delay_queue = 0.0
+        i2c_delay_queue = 0.0
+        cc_delay_queue = 0.0
+        
+        lc_res_queue = 0.0
+        vc_res_queue = 0.0
+        ec_res_queue = 0.0
+        cc_res_queue = 0.0
+        
+        for _ in range(self._client_vehicle_num):
+            delay_queue += self._delay_queues[_].get_queue(time_slot=self.cur_step)
+            lc_delay_queue += self._lc_queues[_].get_queue(time_slot=self.cur_step)
+            lc_res_queue += self._local_computing_resource_queues[_].get_queue(time_slot=self.cur_step)
+            
+        delay_queue /= self._client_vehicle_num
+        lc_delay_queue /= self._client_vehicle_num
+        lc_res_queue /= self._client_vehicle_num
+        
+        for _ in range(self._server_vehicle_num):
+            v2v_delay_queue += self._v2v_queues[_].get_queue(time_slot=self.cur_step)
+            vc_delay_queue += self._vc_queues[_].get_queue(time_slot=self.cur_step)
+            vc_res_queue += self._vehicle_computing_resource_queues[_].get_queue(time_slot=self.cur_step)
+        
+        v2v_delay_queue /= self._server_vehicle_num
+        vc_delay_queue /= self._server_vehicle_num
+        vc_res_queue /= self._server_vehicle_num
+        
+        for _ in range(self._edge_num):
+            v2i_delay_queue += self._v2i_queues[_].get_queue(time_slot=self.cur_step)
+            i2i_delay_queue += self._i2i_queues[_].get_queue(time_slot=self.cur_step)
+            ec_delay_queue += self._ec_queues[_].get_queue(time_slot=self.cur_step)
+            ec_res_queue += self._edge_computing_resource_queues[_].get_queue(time_slot=self.cur_step)
+        
+        v2i_delay_queue /= self._edge_num
+        i2i_delay_queue /= self._edge_num
+        ec_delay_queue /= self._edge_num
+        ec_res_queue /= self._edge_num
+        
+        i2c_delay_queue = self._i2c_quque.get_queue(time_slot=self.cur_step)
+        cc_delay_queue = self._cc_queue.get_queue(time_slot=self.cur_step)
+        cc_res_queue = self._cloud_computing_resource_queue.get_queue(time_slot=self.cur_step)
+        
+        self._total_delay_queues[self.cur_step] = delay_queue
+        self._lc_delay_queues[self.cur_step] = lc_delay_queue
+        self._v2v_delay_queues[self.cur_step] = v2v_delay_queue
+        self._vc_delay_queues[self.cur_step] = vc_delay_queue
+        self._v2i_delay_queues[self.cur_step] = v2i_delay_queue
+        self._i2i_delay_queues[self.cur_step] = i2i_delay_queue
+        self._ec_delay_queues[self.cur_step] = ec_delay_queue
+        self._i2c_delay_queues[self.cur_step] = i2c_delay_queue
+        self._cc_delay_queues[self.cur_step] = cc_delay_queue
+        
+        self._lc_res_queues[self.cur_step] = lc_res_queue
+        self._vc_res_queues[self.cur_step] = vc_res_queue
+        self._ec_res_queues[self.cur_step] = ec_res_queue
+        self._cc_res_queues[self.cur_step] = cc_res_queue
+        
+        
     def reset(self):
         self._done = False
         self._seed += 1
@@ -679,6 +813,8 @@ class VECEnv:
         for _ in range(self._edge_num):
             self._edge_computing_resource_queues[_].reset()
         self._cloud_computing_resource_queue.reset()
+        
+        self.init_results_to_store()
         
         obs = self.obtain_observation()
         s_obs = self.repeat(self.state())
@@ -1049,6 +1185,9 @@ class VECEnv:
             transmission_power_allocation_actions=transmission_power_allocation_actions,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
         )
+        
+        self._costs[self.cur_step] = total_cost
+        
         # print("total_cost: ", total_cost)
         
         # print("delay_queues: ", self._delay_queues)
@@ -1351,6 +1490,15 @@ class VECEnv:
         #     '\nmaximum_i2c_transmission_costs: ', self._maximum_i2c_transmission_costs,
         #     '\nmaximum_cc_computing_cost: ', self._maximum_cc_computing_cost,
         # )
+        
+        self._lc_costs[self.cur_step] = np.mean(lc_computing_costs)
+        self._v2v_costs[self.cur_step] = np.mean(v2v_transmission_costs)
+        self._v2i_costs[self.cur_step] = np.mean(v2i_transmission_costs)
+        self._vc_costs[self.cur_step] = np.mean(vc_computing_costs)
+        self._ec_costs[self.cur_step] = np.mean(ec_computing_costs)
+        self._i2i_costs[self.cur_step] = np.mean(i2i_transmission_costs)
+        self._i2c_costs[self.cur_step] = np.mean(i2c_transmission_costs)
+        self._cc_costs[self.cur_step] = cc_computing_cost
         
         total_cost = compute_total_cost(
             client_vehicle_number=self._client_vehicle_num,
@@ -1891,12 +2039,12 @@ class VECEnv:
                 client_vehicle_index = i - self._client_vehicle_num
                 computation_resource_allocation = true_action[0:self._maximum_task_offloaded_at_client_vehicle_number]
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                print("client vehicle computation_resource_allocation: ", computation_resource_allocation)
+                # print("client vehicle computation_resource_allocation: ", computation_resource_allocation)
                 # print("client vehicle computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 # print("sum_normalized: ", sum(computation_resource_allocation_normalized))
                 transmission_power_allocation = true_action[-2:]
                 transmission_power_allocation_normalized = self.normalize(transmission_power_allocation)
-                print("transmission_power_allocation: ", transmission_power_allocation)
+                # print("transmission_power_allocation: ", transmission_power_allocation)
                 # print("transmission_power_allocation_normalized: ", transmission_power_allocation_normalized)
                 # V2V transmission power allocation + V2I transmission power allocation
                 transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)] = transmission_power_allocation_normalized
@@ -1905,20 +2053,20 @@ class VECEnv:
                 server_vehicle_index = i - self._client_vehicle_num * 2
                 computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                print("server vehicle computation_resource_allocation: ", computation_resource_allocation)
+                # print("server vehicle computation_resource_allocation: ", computation_resource_allocation)
                 # print("server vehicle computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["server_vehicle_" + str(server_vehicle_index)] = computation_resource_allocation_normalized
             elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
                 edge_node_index = i - self._client_vehicle_num * 2 - self._server_vehicle_num
                 computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                print("edge node computation_resource_allocation: ", computation_resource_allocation)
+                # print("edge node computation_resource_allocation: ", computation_resource_allocation)
                 # print("edge node computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["edge_node_" + str(edge_node_index)] = computation_resource_allocation_normalized
             else:
                 computation_resource_allocation = true_action
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                print("cloud computation_resource_allocation: ", computation_resource_allocation)
+                # print("cloud computation_resource_allocation: ", computation_resource_allocation)
                 # print("cloud computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["cloud"] = computation_resource_allocation_normalized
         return task_offloading_actions, transmission_power_allocation_actions, computation_resource_allocation_actions
@@ -1949,31 +2097,70 @@ class VECEnv:
         for i in range(self._client_vehicle_num):
             tasks_of_vehicle_i = self._client_vehicles[i].get_tasks_by_time(now)
             min_num = min(len(tasks_of_vehicle_i), self._maximum_task_generation_number_of_vehicles)
+            self._task_num_sum += min_num
+            self._task_nums[self.cur_step] += min_num
+            self._ave_task_num_of_each_client_vehicle[self.cur_step] += min_num
             if min_num > 0:
                 for j in range(min_num):
                     task_index = tasks_of_vehicle_i[j][1]
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Local":
                         if len(task_offloaded_at_client_vehicles["client_vehicle_" + str(i)]) < self._maximum_task_offloaded_at_client_vehicle_number:
                             task_offloaded_at_client_vehicles["client_vehicle_" + str(i)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
+                            self._task_processed_at_local[self.cur_step] += 1
                     elif task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Server Vehicle"):
                         server_vehicle_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
                         if vehicles_under_V2V_communication_range[i][server_vehicle_index][now] == 1:
                             if len(task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)]) < self._maximum_task_offloaded_at_server_vehicle_number:
                                 task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)].append({"client_vehicle_index": i, "task_index": task_index, "task": tasks_of_vehicle_i[j][2]})
+                                self._task_processed_at_vehicle[self.cur_step] += 1
                     elif task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].startswith("Edge Node"):
                         edge_node_index = int(task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)].split(" ")[-1])
                         for e in range(self._edge_num):
                             if vehicles_under_V2I_communication_range[i][e][now] == 1:
                                 task_uploaded_at_edge_nodes["edge_node_" + str(e)].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
+                                self._task_uploaded_at_edge[self.cur_step] += 1
                                 if len(task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]) < self._maximum_task_offloaded_at_edge_node_number:
                                     task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
+                                    self._task_processed_at_edge[self.cur_step] += 1
+                                    if edge_node_index != e:
+                                        self._task_processed_at_other_edge[self.cur_step] += 1
+                                    else:
+                                        self._task_processed_at_local_edge[self.cur_step] += 1
                     else:
                         for e in range(self._edge_num):
                             if vehicles_under_V2I_communication_range[i][e][now] == 1:
                                 task_uploaded_at_edge_nodes["edge_node_" + str(e)].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
+                                self._task_uploaded_at_edge[self.cur_step] += 1
                                 if len(task_offloaded_at_cloud["cloud"]) < self._maximum_task_offloaded_at_cloud_number:
                                     task_offloaded_at_cloud["cloud"].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
-                                
+                                    self._task_processed_at_cloud[self.cur_step] += 1
+        
+        ave_task_processed_at_local = 0
+        ave_task_processed_at_vehicle = 0
+        ave_task_processed_at_edge = 0
+        ave_task_processed_at_cloud = 0
+        avg_task_uploaded_at_each_edge = 0
+        for i in range(self._client_vehicle_num):
+            ave_task_processed_at_local += len(task_offloaded_at_client_vehicles["client_vehicle_" + str(i)])
+        for i in range(self._server_vehicle_num):
+            ave_task_processed_at_vehicle += len(task_offloaded_at_server_vehicles["server_vehicle_" + str(i)])
+        for i in range(self._edge_num):
+            ave_task_processed_at_edge += len(task_offloaded_at_edge_nodes["edge_node_" + str(i)])
+            avg_task_uploaded_at_each_edge += len(task_uploaded_at_edge_nodes["edge_node_" + str(i)])
+        ave_task_processed_at_cloud = len(task_offloaded_at_cloud["cloud"])
+        ave_task_processed_at_local /= self._client_vehicle_num
+        ave_task_processed_at_vehicle /= self._server_vehicle_num
+        ave_task_processed_at_edge /= self._edge_num
+        avg_task_uploaded_at_each_edge /= self._edge_num
+        
+        self._avg_task_processed_at_local[self.cur_step] = ave_task_processed_at_local
+        self._avg_task_processed_at_vehicle[self.cur_step] = ave_task_processed_at_vehicle
+        self._avg_task_processed_at_edge[self.cur_step] = ave_task_processed_at_edge
+        self._avg_task_processed_at_cloud[self.cur_step] = ave_task_processed_at_cloud
+        self._avg_task_uploaded_at_each_edge[self.cur_step] = avg_task_uploaded_at_each_edge
+        
+        self._task_successfully_processed_num[self.cur_step] = self._task_processed_at_local[self.cur_step] + self._task_processed_at_vehicle[self.cur_step] + self._task_processed_at_edge[self.cur_step] + self._task_processed_at_cloud[self.cur_step]
+        self._ave_task_num_of_each_client_vehicle[self.cur_step] /= self._client_vehicle_num                       
         return task_offloaded_at_client_vehicles, task_offloaded_at_server_vehicles, task_offloaded_at_edge_nodes, task_uploaded_at_edge_nodes, task_offloaded_at_cloud
     
     def init_action_number_of_agents(self):
@@ -2181,3 +2368,141 @@ class VECEnv:
         if total_sum == 0:
             return np.zeros_like(x)
         return x / total_sum
+    
+    def get_env_tag(self):
+        return "vec_env"
+    
+    def save_results(
+        self,
+        env_tag: str = "",
+        alg_type: str = "",
+    ):
+        """add results to the file"""
+        try:
+            env_tag = env_tag if env_tag != "" else self.get_env_tag()
+            sample_file_name = self._resutls_file_name + "_" + env_tag + "_" + alg_type + ".txt"
+            complete_file_name = self._resutls_file_name + "_" + env_tag + "_" + alg_type + "_complete.txt"
+            with open(sample_file_name, "a+") as f:
+                f.write("episode_index: " + str(self._episode_index) + "\n" \
+                    + "reward: " + str(self._reward) + "\n" \
+                    + "rewards: " + str(self._rewards) + "\n" \
+                    + "average reward: " + str(np.mean(self._rewards)) + "\n" \
+                    + "costs: " + str(self._costs) + "\n" \
+                    + "average cost: " + str(np.mean(self._costs)) + "\n" \
+                    + "average lc cost: " + str(np.mean(self._lc_costs)) + "\n" \
+                    + "average v2v cost: " + str(np.mean(self._v2v_costs)) + "\n" \
+                    + "average vc cost: " + str(np.mean(self._vc_costs)) + "\n" \
+                    + "average v2i cost: " + str(np.mean(self._v2i_costs)) + "\n" \
+                    + "average i2i cost: " + str(np.mean(self._i2i_costs)) + "\n" \
+                    + "average ec cost: " + str(np.mean(self._ec_costs)) + "\n" \
+                    + "average i2c cost: " + str(np.mean(self._i2c_costs)) + "\n" \
+                    + "average cc cost: " + str(np.mean(self._cc_costs)) + "\n" \
+                    + "average delay queue: " + str(np.mean(self._total_delay_queues)) + "\n" \
+                    + "average lc delay queue: " + str(np.mean(self._lc_delay_queues)) + "\n" \
+                    + "average v2v delay queue: " + str(np.mean(self._v2v_delay_queues)) + "\n" \
+                    + "average vc delay queue: " + str(np.mean(self._vc_delay_queues)) + "\n" \
+                    + "average v2i delay queue: " + str(np.mean(self._v2i_delay_queues)) + "\n" \
+                    + "average i2i delay queue: " + str(np.mean(self._i2i_delay_queues)) + "\n" \
+                    + "average ec delay queue: " + str(np.mean(self._ec_delay_queues)) + "\n" \
+                    + "average i2c delay queue: " + str(np.mean(self._i2c_delay_queues)) + "\n" \
+                    + "average cc delay queue: " + str(np.mean(self._cc_delay_queues)) + "\n" \
+                    + "average lc res queue: " + str(np.mean(self._lc_res_queues)) + "\n" \
+                    + "average vc res queue: " + str(np.mean(self._vc_res_queues)) + "\n" \
+                    + "average ec res queue: " + str(np.mean(self._ec_res_queues)) + "\n" \
+                    + "average cc res queue: " + str(np.mean(self._cc_res_queues)) + "\n" \
+                    + "average task num: " + str(self._task_num_sum / self._slot_length) + "\n" \
+                    + "average task uploaded at edge: " + str(np.mean(self._task_uploaded_at_edge)) + "\n" \
+                    + "average task processed at local: " + str(np.mean(self._task_processed_at_local)) + "\n" \
+                    + "average task processed at vehicle: " + str(np.mean(self._task_processed_at_vehicle)) + "\n" \
+                    + "average task processed at edge: " + str(np.mean(self._task_processed_at_edge)) + "\n" \
+                    + "average task processed at local edge: " + str(np.mean(self._task_processed_at_local_edge)) + "\n" \
+                    + "average task processed at other edge: " + str(np.mean(self._task_processed_at_other_edge)) + "\n" \
+                    + "average task processed at cloud: " + str(np.mean(self._task_processed_at_cloud)) + "\n" \
+                    + "average task successfully processed num: " + str(np.mean(self._task_successfully_processed_num)) + "\n" \
+                    + "average task num of each client vehicle: " + str(np.mean(self._ave_task_num_of_each_client_vehicle)) + "\n" \
+                    + "average task processed at local: " + str(np.mean(self._avg_task_processed_at_local)) + "\n" \
+                    + "average task processed at vehicle: " + str(np.mean(self._avg_task_processed_at_vehicle)) + "\n" \
+                    + "average task processed at edge: " + str(np.mean(self._avg_task_processed_at_edge)) + "\n" \
+                    + "average task processed at cloud: " + str(np.mean(self._avg_task_processed_at_cloud)) + "\n" \
+                    + "average task uploaded at each edge: " + str(np.mean(self._avg_task_uploaded_at_each_edge)) + "\n" )
+            with open(complete_file_name, "a+") as f:
+                f.write("episode_index: " + str(self._episode_index) + "\n" \
+                    + "reward: " + str(self._reward) + "\n" \
+                    + "rewards: " + str(self._rewards) + "\n" \
+                    + "average reward: " + str(np.mean(self._rewards)) + "\n" \
+                    + "costs: " + str(self._costs) + "\n" \
+                    + "average cost: " + str(np.mean(self._costs)) + "\n" \
+                    + "lc_costs: " + str(self._lc_costs) + "\n" \
+                    + "average lc cost: " + str(np.mean(self._lc_costs)) + "\n" \
+                    + "v2v_costs: " + str(self._v2v_costs) + "\n" \
+                    + "average v2v cost: " + str(np.mean(self._v2v_costs)) + "\n" \
+                    + "vc_costs: " + str(self._vc_costs) + "\n" \
+                    + "average vc cost: " + str(np.mean(self._vc_costs)) + "\n" \
+                    + "v2i_costs: " + str(self._v2i_costs) + "\n" \
+                    + "average v2i cost: " + str(np.mean(self._v2i_costs)) + "\n" \
+                    + "i2i_costs: " + str(self._i2i_costs) + "\n" \
+                    + "average i2i cost: " + str(np.mean(self._i2i_costs)) + "\n" \
+                    + "ec_costs: " + str(self._ec_costs) + "\n" \
+                    + "average ec cost: " + str(np.mean(self._ec_costs)) + "\n" \
+                    + "i2c_costs: " + str(self._i2c_costs) + "\n" \
+                    + "average i2c cost: " + str(np.mean(self._i2c_costs)) + "\n" \
+                    + "cc_costs: " + str(self._cc_costs) + "\n" \
+                    + "average cc cost: " + str(np.mean(self._cc_costs)) + "\n" \
+                    + "delay_queues: " + str(self._total_delay_queues) + "\n" \
+                    + "average delay queue: " + str(np.mean(self._total_delay_queues)) + "\n" \
+                    + "lc_delay_queues: " + str(self._lc_delay_queues) + "\n" \
+                    + "average lc delay queue: " + str(np.mean(self._lc_delay_queues)) + "\n" \
+                    + "v2v_delay_queues: " + str(self._v2v_delay_queues) + "\n" \
+                    + "average v2v delay queue: " + str(np.mean(self._v2v_delay_queues)) + "\n" \
+                    + "vc_delay_queues: " + str(self._vc_delay_queues) + "\n" \
+                    + "average vc delay queue: " + str(np.mean(self._vc_delay_queues)) + "\n" \
+                    + "v2i_delay_queues: " + str(self._v2i_delay_queues) + "\n" \
+                    + "average v2i delay queue: " + str(np.mean(self._v2i_delay_queues)) + "\n" \
+                    + "i2i_delay_queues: " + str(self._i2i_delay_queues) + "\n" \
+                    + "average i2i delay queue: " + str(np.mean(self._i2i_delay_queues)) + "\n" \
+                    + "ec_delay_queues: " + str(self._ec_delay_queues) + "\n" \
+                    + "average ec delay queue: " + str(np.mean(self._ec_delay_queues)) + "\n" \
+                    + "i2c_delay_queues: " + str(self._i2c_delay_queues) + "\n" \
+                    + "average i2c delay queue: " + str(np.mean(self._i2c_delay_queues)) + "\n" \
+                    + "cc_delay_queues: " + str(self._cc_delay_queues) + "\n" \
+                    + "average cc delay queue: " + str(np.mean(self._cc_delay_queues)) + "\n" \
+                    + "lc_res_queues: " + str(self._lc_res_queues) + "\n" \
+                    + "average lc res queue: " + str(np.mean(self._lc_res_queues)) + "\n" \
+                    + "vc_res_queues: " + str(self._vc_res_queues) + "\n" \
+                    + "average vc res queue: " + str(np.mean(self._vc_res_queues)) + "\n" \
+                    + "ec_res_queues: " + str(self._ec_res_queues) + "\n" \
+                    + "average ec res queue: " + str(np.mean(self._ec_res_queues)) + "\n" \
+                    + "cc_res_queues: " + str(self._cc_res_queues) + "\n" \
+                    + "average cc res queue: " + str(np.mean(self._cc_res_queues)) + "\n" \
+                    + "task_num_sum: " + str(self._task_num_sum) + "\n" \
+                    + "average task num: " + str(self._task_num_sum / self._slot_length) + "\n" \
+                    + "task_uploaded_at_edge: " + str(self._task_uploaded_at_edge) + "\n" \
+                    + "average task uploaded at edge: " + str(np.mean(self._task_uploaded_at_edge)) + "\n" \
+                    + "task_processed_at_local: " + str(self._task_processed_at_local) + "\n" \
+                    + "average task processed at local: " + str(np.mean(self._task_processed_at_local)) + "\n" \
+                    + "task_processed_at_vehicle: " + str(self._task_processed_at_vehicle) + "\n" \
+                    + "average task processed at vehicle: " + str(np.mean(self._task_processed_at_vehicle)) + "\n" \
+                    + "task_processed_at_edge: " + str(self._task_processed_at_edge) + "\n" \
+                    + "average task processed at edge: " + str(np.mean(self._task_processed_at_edge)) + "\n" \
+                    + "task_processed_at_local_edge: " + str(self._task_processed_at_local_edge) + "\n" \
+                    + "average task processed at local edge: " + str(np.mean(self._task_processed_at_local_edge)) + "\n" \
+                    + "task_processed_at_other_edge: " + str(self._task_processed_at_other_edge) + "\n" \
+                    + "average task processed at other edge: " + str(np.mean(self._task_processed_at_other_edge)) + "\n" \
+                    + "task_processed_at_cloud: " + str(self._task_processed_at_cloud) + "\n" \
+                    + "average task processed at cloud: " + str(np.mean(self._task_processed_at_cloud)) + "\n" \
+                    + "task_successfully_processed_num: " + str(self._task_successfully_processed_num) + "\n" \
+                    + "average task successfully processed num: " + str(np.mean(self._task_successfully_processed_num)) + "\n" \
+                    + "avg task num of each client vehicle: " + str(self._ave_task_num_of_each_client_vehicle) + "\n" \
+                    + "average task num of each client vehicle: " + str(np.mean(self._ave_task_num_of_each_client_vehicle)) + "\n" \
+                    + "avg task processed at local: " + str(self._avg_task_processed_at_local) + "\n" \
+                    + "average task processed at local: " + str(np.mean(self._avg_task_processed_at_local)) + "\n" \
+                    + "avg task processed at vehicle: " + str(self._avg_task_processed_at_vehicle) + "\n" \
+                    + "average task processed at vehicle: " + str(np.mean(self._avg_task_processed_at_vehicle)) + "\n" \
+                    + "avg task processed at edge: " + str(self._avg_task_processed_at_edge) + "\n" \
+                    + "average task processed at edge: " + str(np.mean(self._avg_task_processed_at_edge)) + "\n" \
+                    + "avg task processed at cloud: " + str(self._avg_task_processed_at_cloud) + "\n" \
+                    + "average task processed at cloud: " + str(np.mean(self._avg_task_processed_at_cloud)) + "\n" \
+                    + "avg task uploaded at each edge: " + str(self._avg_task_uploaded_at_each_edge) + "\n" \
+                    + "average task uploaded at each edge: " + str(np.mean(self._avg_task_uploaded_at_each_edge)) + "\n" )
+        except:
+            raise Exception("No such file: " + self._resutls_file_name)
