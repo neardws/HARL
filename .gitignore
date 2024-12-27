@@ -417,3 +417,10 @@ tags
 
 trajectories_files/
 trajectories_files/*
+
+results/
+results/*
+
+draw/
+draw/*
+
