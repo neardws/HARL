@@ -41,8 +41,8 @@ class VECEnv:
         self._task_distribution: str = self.args["task_distribution"]
         self._min_input_data_size_of_tasks: float = self.args["min_input_data_size_of_tasks"]
         self._max_input_data_size_of_tasks: float = self.args["max_input_data_size_of_tasks"]
-        self._min_cqu_cycles_of_tasks: float = self.args["min_cqu_cycles_of_tasks"]
-        self._max_cqu_cycles_of_tasks: float = self.args["max_cqu_cycles_of_tasks"]
+        self._min_cpu_cycles_of_tasks: float = self.args["min_cpu_cycles_of_tasks"]
+        self._max_cpu_cycles_of_tasks: float = self.args["max_cpu_cycles_of_tasks"]
         
         self._vehicle_num: int = self.args["vehicle_num"]
         self._vehicle_mobility_file_name_key: str = self.args["vehicle_mobility_file_name_key"]
@@ -112,8 +112,8 @@ class VECEnv:
             distribution=self._task_distribution,
             min_input_data_size=self._min_input_data_size_of_tasks,
             max_input_data_size=self._max_input_data_size_of_tasks,
-            min_cqu_cycles=self._min_cqu_cycles_of_tasks,
-            max_cqu_cycles=self._max_cqu_cycles_of_tasks,
+            min_cpu_cycles=self._min_cpu_cycles_of_tasks,
+            max_cpu_cycles=self._max_cpu_cycles_of_tasks,
         )
         
         min_map_x, max_map_x, min_map_y, max_map_y, self._vehicles = generate_vehicles(
@@ -1269,8 +1269,8 @@ class VECEnv:
             print("phi_t: ", phi_t)
             raise ValueError("The phi_t should be in the range of (0, 1]")
         
-        print("total_cost: ", total_cost)
-        print("phi_t: ", phi_t)
+        # print("total_cost: ", total_cost)
+        # print("phi_t: ", phi_t)
         
         if total_cost < 1e-2:
             total_cost = 1e-2
@@ -1621,14 +1621,14 @@ class VECEnv:
                 min_num = min(len(tasks_of_vehicle), self._maximum_task_generation_number_of_vehicles)
                 for task in range(min_num):
                     task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
-                    cqu_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
+                    CPU_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
                     if self._maximum_task_data_size != 0:
                         observation[index] = task_data_size / self._maximum_task_data_size
                     else:
                         observation[index] = 1
                     index += 1
                     if self._maximum_task_required_cycles != 0:
-                        observation[index] = cqu_cycles / self._maximum_task_required_cycles
+                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
                     else:
                         observation[index] = 1
                     index += 1
@@ -1734,14 +1734,14 @@ class VECEnv:
                 
                 for task_index in range(min_num):
                     task_data_size = tasks_offloaded_at_vehicle[task_index]["task"].get_input_data_size()
-                    cqu_cycles = tasks_offloaded_at_vehicle[task_index]["task"].get_requested_computing_cycles()
+                    CPU_cycles = tasks_offloaded_at_vehicle[task_index]["task"].get_requested_computing_cycles()
                     if self._maximum_task_data_size != 0:
                         observation[index] = task_data_size / self._maximum_task_data_size
                     else:
                         observation[index] = 1
                     index += 1
                     if self._maximum_task_required_cycles != 0:
-                        observation[index] = cqu_cycles / self._maximum_task_required_cycles    
+                        observation[index] = CPU_cycles / self._maximum_task_required_cycles    
                     else:
                         observation[index] = 1
                     index += 1
@@ -1809,14 +1809,14 @@ class VECEnv:
                 min_num = min(len(server_tasks), self._maximum_task_offloaded_at_server_vehicle_number)
                 for task in range(min_num):
                     task_data_size = server_tasks[task]["task"].get_input_data_size()
-                    cqu_cycles = server_tasks[task]["task"].get_requested_computing_cycles()
+                    CPU_cycles = server_tasks[task]["task"].get_requested_computing_cycles()
                     if self._maximum_task_data_size != 0:
                         observation[index] = task_data_size / self._maximum_task_data_size
                     else:
                         observation[index] = 1
                     index += 1
                     if self._maximum_task_required_cycles != 0:
-                        observation[index] = cqu_cycles / self._maximum_task_required_cycles
+                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
                     else:
                         observation[index] = 1
                     index += 1
@@ -1850,14 +1850,14 @@ class VECEnv:
                 min_num = min(len(edge_tasks), self._maximum_task_offloaded_at_edge_node_number)
                 for task in range(min_num):
                     task_data_size = edge_tasks[task]["task"].get_input_data_size()
-                    cqu_cycles = edge_tasks[task]["task"].get_requested_computing_cycles()
+                    CPU_cycles = edge_tasks[task]["task"].get_requested_computing_cycles()
                     if self._maximum_task_data_size != 0:
                         observation[index] = task_data_size / self._maximum_task_data_size
                     else:
                         observation[index] = 1
                     index += 1
                     if self._maximum_task_required_cycles != 0:
-                        observation[index] = cqu_cycles / self._maximum_task_required_cycles
+                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
                     else:
                         observation[index] = 1
                     index += 1
@@ -1888,14 +1888,14 @@ class VECEnv:
                 min_num = min(len(cloud_tasks), self._maximum_task_offloaded_at_cloud_number)
                 for task in range(min_num):
                     task_data_size = cloud_tasks[task]["task"].get_input_data_size()
-                    cqu_cycles = cloud_tasks[task]["task"].get_requested_computing_cycles()
+                    CPU_cycles = cloud_tasks[task]["task"].get_requested_computing_cycles()
                     if self._maximum_task_data_size != 0:
                         observation[index] = task_data_size / self._maximum_task_data_size
                     else:
                         observation[index] = 1
                     index += 1
                     if self._maximum_task_required_cycles != 0:
-                        observation[index] = cqu_cycles / self._maximum_task_required_cycles
+                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
                     else:
                         observation[index] = 1
                     index += 1
@@ -1937,14 +1937,14 @@ class VECEnv:
             min_num = min(len(tasks_of_vehicle), self._maximum_task_generation_number_of_vehicles)
             for task in range(min_num):
                 task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
-                cqu_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
+                CPU_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
                 if self._maximum_task_data_size != 0:
                     state[index] = task_data_size / self._maximum_task_data_size
                 else:
                     state[index] = 1
                 index += 1
                 if self._maximum_task_required_cycles != 0:
-                    state[index] = cqu_cycles / self._maximum_task_required_cycles
+                    state[index] = CPU_cycles / self._maximum_task_required_cycles
                 else:
                     state[index] = 1
                 index += 1
@@ -2311,7 +2311,7 @@ class VECEnv:
     def init_observation_number_of_agents(self):
         
         # the observation space of the client vehicle
-        # conisits of task information (data size, CQU cycles)
+        # conisits of task information (data size, CPU cycles)
         # the queue backlog of the lc_queue
         # the V2V connection based on the V2V distance
         # the queue backlog of the V2V and VC queue of all server clients
@@ -2328,7 +2328,7 @@ class VECEnv:
             2
             
         # the observation space of the client vehcile when doing the transmission power allocation and computation resource allocation
-        # consists of task information (data size, CQU cycles)
+        # consists of task information (data size, CPU cycles)
         # the queue backlog of the lc_queue
         # the V2V connection based on the V2V distance 
         # the queue backlog of the V2V queue of all server clients
@@ -2343,19 +2343,19 @@ class VECEnv:
             self._edge_num
             
         # the observation space of the server vehicle
-        # consists of the task information (data size, CQU cycles)
+        # consists of the task information (data size, CPU cycles)
         # the queue backlog of the VC queue
         server_vehicle_observation = \
             2 * self._maximum_task_offloaded_at_server_vehicle_number + \
             1
         # the observation space of the edge node
-        # consists of the task information (data size, CQU cycles)
+        # consists of the task information (data size, CPU cycles)
         # the queue backlog of the EC queue
         edge_node_observation = \
             2 * self._maximum_task_offloaded_at_edge_node_number + \
             1
         # the observation space of the cloud
-        # consists of the task information (data size, CQU cycles)
+        # consists of the task information (data size, CPU cycles)
         # the queue backlog of the CC queue
         cloud_observation = \
             2 * self._maximum_task_offloaded_at_cloud_number + \
@@ -2404,7 +2404,7 @@ class VECEnv:
     
     def generate_state_space(self):
         # the state space of the system
-        # conisits of task information (data size, CQU cycles) of all client vehicles
+        # conisits of task information (data size, CPU cycles) of all client vehicles
         # the queue backlog of the lc_queue of all client vehicles
         # the V2V connection based on the V2V distance of all client vehicles
         # the queue backlog of the V2V and VC queue of all server clients of all server vehicles

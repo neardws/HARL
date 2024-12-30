@@ -13,8 +13,8 @@ def generate_task_set(
     distribution: str,
     min_input_data_size: float,     # in MB
     max_input_data_size: float,     # in MB
-    min_cqu_cycles: float,          # cycles/bit
-    max_cqu_cycles: float,          # cycles/bit
+    min_cpu_cycles: float,          # cycles/bit
+    max_cpu_cycles: float,          # cycles/bit
 ) -> List[Dict]:
     tasks = []
     if distribution == "uniform":
@@ -32,7 +32,7 @@ def generate_task_set(
                 "task_index": _,
                 "min_input_data_size": t_min_input_data_size,
                 "max_input_data_size": t_max_input_data_size,
-                "cqu_cycles": random.uniform(min_cqu_cycles, max_cqu_cycles),
+                "cpu_cycles": random.uniform(min_cpu_cycles, max_cpu_cycles),
             }
             tasks.append(t)
         return tasks

@@ -136,7 +136,7 @@ class vehicle(object):
         for i in range(self._task_ids_num):
             min_task_input_data_size = tasks[self._task_ids[i]]["min_input_data_size"]
             max_task_input_data_size = tasks[self._task_ids[i]]["max_input_data_size"]
-            task_cpu_cycles = tasks[self._task_ids[i]]["cqu_cycles"]
+            task_cpu_cycles = tasks[self._task_ids[i]]["cpu_cycles"]
             task_arrival_times = np.random.poisson(self._task_arrival_rate[i], self._time_slot_num)
             task_input_date_sizes = np.random.uniform(min_task_input_data_size, max_task_input_data_size, len(task_arrival_times))
             for j in range(self._time_slot_num):
