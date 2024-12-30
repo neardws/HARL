@@ -51,6 +51,7 @@ class delayQueue(baseQueue):
                 )
                 # print("total_queue_length: ", total_queue_length)
                 input += total_queue_length
+            input /= min_num
         return input
                     
     def compute_total_queue_length(

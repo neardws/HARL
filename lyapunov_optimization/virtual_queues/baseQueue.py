@@ -24,7 +24,9 @@ class baseQueue:
         if time_slot > self._time_slot_num or time_slot < 0:
             raise ValueError("The time slot is out of range.")
         self._inputs[time_slot] = input
+        # print("input: ", input)
         self._outputs[time_slot] = output
+        # print("output: ", output)
         if time_slot < self._time_slot_num - 1:
             try:
                 self._queue[time_slot + 1] = self.max_0(float(self._queue[time_slot] + input - output))

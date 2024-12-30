@@ -5,7 +5,7 @@ device:
 
 state_type: FP
 
-slot_length: 100
+slot_length: 60
 task_num: 100
 task_distribution: "uniform"
 min_input_data_size_of_tasks: 0.01  # MB
@@ -59,6 +59,6 @@ path_loss_exponent: 3
 
 seed: 264
 
-penalty_weight: 100000.0                          # 1 x 10^5
+penalty_weight: 1                          # 1
 
 

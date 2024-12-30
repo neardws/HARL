@@ -194,6 +194,9 @@ class VECEnv:
             vehicles=self._vehicles,
         )
         
+        # print("client_vehicles_number: ", len(self._client_vehicles))
+        # print("server_vehicles_number: ", len(self._server_vehicles))
+        
         self._maximum_task_generation_number_of_vehicles, self._average_task_generation_numbers, \
             self._sum_task_generation_numbers= self.obtain_task_generation_numbers(
             client_vehicles = self._client_vehicles,
@@ -232,11 +235,29 @@ class VECEnv:
             time_slot_num=self._slot_length,
         )
         
+        # v2v_connections = np.zeros((self._slot_length, ))
+        # for t in range(self._slot_length):
+        #     for i in range(self._client_vehicle_num):
+        #         for j in range(self._server_vehicle_num):
+        #             if self._vehicles_under_V2V_communication_range[i][j][t] == 1:
+        #                 v2v_connections[t] += 1
+        # print("v2v_connections: ", v2v_connections)
+        # print("avg v2v_connections: ", np.mean(v2v_connections))
+        
         self._vehicles_under_V2I_communication_range : np.ndarray = get_vehicles_under_V2I_communication_range(
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
             time_slot_num=self._slot_length,
         )
+        
+        # v2i_connections = np.zeros((self._slot_length, ))
+        # for t in range(self._slot_length):
+        #     for i in range(self._client_vehicle_num):
+        #         for j in range(self._edge_num):
+        #             if self._vehicles_under_V2I_communication_range[i][j][t] == 1:
+        #                 v2i_connections[t] += 1
+        # print("v2i_connections: ", v2i_connections)
+        # print("avg v2i_connections: ", np.mean(v2i_connections))
         
         self._channel_gains_between_client_vehicle_and_server_vehicles = obtain_channel_gains_between_client_vehicle_and_server_vehicles(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
@@ -451,6 +472,31 @@ class VECEnv:
         
         self.init_results_to_store()
         
+        self._init = True
+        
+        self.init_maximum_cost_and_phi_t()
+        
+        self._init = False
+        
+    def init_maximum_cost_and_phi_t(self):
+        for _ in range(10):
+            for __ in range(self._slot_length):
+                self.step(self.random_action(
+                    max_action=self._max_action,
+                    agent_number=self.n_agents,
+                ))
+                
+    def random_action(
+        self,
+        max_action : int,
+        agent_number : int,
+    ):
+        actions = []
+        for _ in range(agent_number):
+            # generate the random values in the range of 0 to 1 of the size of max_action
+            action = np.random.rand(max_action)
+            actions.append(action)
+        return actions
     
     def init_results_to_store(self):
         
@@ -595,8 +641,9 @@ class VECEnv:
     def step(self, actions):
         # transform the actions into the task offloading actions, transmission power allocation actions, computation resource allocation actions
         
-        print("*" * 50)
-        print("cur_step: ", self.cur_step)
+        if not self._init:
+            print("*" * 50)
+            print("cur_step: ", self.cur_step)
         
         # print("vehicles_under_V2V_communication_range: ", self._vehicles_under_V2V_communication_range)
         # print("vehicles_under_V2I_communication_range: ", self._vehicles_under_V2V_communication_range)
@@ -628,18 +675,6 @@ class VECEnv:
         # print("task_offloaded_at_cloud: ", self._task_offloaded_at_cloud)
         # end_time = time.time()
         # print("obtain_tasks_offloading_conditions time: ", end_time - now_time)    
-        
-        # now_time = time.time()
-        reward = self.compute_reward(
-            task_offloading_actions=task_offloading_actions,
-            transmission_power_allocation_actions=transmission_power_allocation_actions,
-            computation_resource_allocation_actions=computation_resource_allocation_actions,
-        )
-        
-        self._reward += reward
-        self._rewards[self.cur_step] = reward
-        print("reward: ", reward)
-        
         self.update_self_queues()
         
         # now_time = time.time()
@@ -655,6 +690,18 @@ class VECEnv:
             task_offloading_actions=task_offloading_actions,
             computation_resource_allocation_actions=computation_resource_allocation_actions,
         )
+        # now_time = time.time()
+        reward = self.compute_reward(
+            task_offloading_actions=task_offloading_actions,
+            transmission_power_allocation_actions=transmission_power_allocation_actions,
+            computation_resource_allocation_actions=computation_resource_allocation_actions,
+        )
+        
+        self._reward += reward
+        self._rewards[self.cur_step] = reward
+        if not self._init:
+            print("reward: ", reward)
+        
         # end_time = time.time()
         # print("update_virtual_queues time: ", end_time - now_time)
 
@@ -677,8 +724,9 @@ class VECEnv:
             self._done = True
         
         if self._done:
-            self.save_results()
-            self._episode_index += 1
+            if not self._init:
+                self.save_results()
+                self._episode_index += 1
             self.reset()
             
         obs = self.obtain_observation()
@@ -1103,13 +1151,13 @@ class VECEnv:
                 now=self.cur_step,
                 client_vehicles=self._client_vehicles,
             )
+            # print("delay_queue_input: ", delay_queue_input)
+            # print("delay_queue_output: ", delay_queue_output)
             self._delay_queues[client_vehicle_index].update(
                 input=delay_queue_input,
                 output=delay_queue_output,
                 time_slot=self.cur_step,
             )
-            # print("delay_queue_input: ", delay_queue_input)
-            # print("delay_queue_output: ", delay_queue_output)
         
         # update the local computing resource queues
         for client_vehicle_index in range(self._client_vehicle_num):
@@ -1216,13 +1264,27 @@ class VECEnv:
         # return the reward in the range of [0, 1]
         if total_cost < 0 or total_cost > 1:
             print("total_cost: ", total_cost)
-            raise ValueError("The total cost should be in the range of [0, 1]")
+            raise ValueError("The total cost should be in the range of (0, 1]")
         if phi_t < 0 or phi_t > 1:
             print("phi_t: ", phi_t)
-            raise ValueError("The phi_t should be in the range of [0, 1]")
-        reward = - penalty_weight * total_cost - phi_t   # reward in the range of [-(penalty_weight + 1), 0]
-        reward = reward + (penalty_weight + 1)           # Shift to [0, penalty_weight + 1]
-        reward = reward / (penalty_weight + 1)           # Normalize to [0, 1]
+            raise ValueError("The phi_t should be in the range of (0, 1]")
+        
+        print("total_cost: ", total_cost)
+        print("phi_t: ", phi_t)
+        
+        if total_cost < 1e-2:
+            total_cost = 1e-2
+        if phi_t < 1e-2:
+            phi_t = 1e-2
+        
+        # print("self._task_successfully_processed_num[self.cur_step]: ", self._task_successfully_processed_num[self.cur_step])
+        # print("self._task_nums[self.cur_step]: ", self._task_nums[self.cur_step])
+        # print("1 / (penalty_weight * total_cost): ", 1 / (penalty_weight * total_cost))
+        # print("1 / phi_t: ", 1 / phi_t)
+        reward = (self._task_successfully_processed_num[self.cur_step] / self._task_nums[self.cur_step]) * (1 / (penalty_weight * total_cost) + 1 / phi_t)
+        # print("reward: ", reward)
+        reward /= (1 / (1e-2 * penalty_weight) + 1 / 1e-2)
+        # print("reward: ", reward)
         return reward
     
     def compute_total_phi_t(
@@ -1238,9 +1300,9 @@ class VECEnv:
         phi_t_5 = 0.0
     
         for i in range(self._client_vehicle_num):
-            # print("delay_queues[i].get_queue(now): ", delay_queues[i].get_queue(now))
-            # print("delay_queues[i].get_output_by_time(now): ", delay_queues[i].get_output_by_time(now))
-            # print("delay_queues[i].get_input_by_time(now): ", delay_queues[i].get_input_by_time(now))
+            # print("delay_queues[i].get_queue(now): ", self._delay_queues[i].get_queue(now))
+            # print("delay_queues[i].get_output_by_time(now): ", self._delay_queues[i].get_output_by_time(now))
+            # print("delay_queues[i].get_input_by_time(now): ", self._delay_queues[i].get_input_by_time(now))
             # print("result: ", (delay_queues[i].get_queue(now) - delay_queues[i].get_output_by_time(now) ) * delay_queues[i].get_input_by_time(now))
             phi_t_delay_queue = (self._delay_queues[i].get_queue(now) - self._delay_queues[i].get_output_by_time(now)) * \
                 self._delay_queues[i].get_input_by_time(now)
@@ -2126,6 +2188,7 @@ class VECEnv:
                                         self._task_processed_at_other_edge[self.cur_step] += 1
                                     else:
                                         self._task_processed_at_local_edge[self.cur_step] += 1
+                                break
                     else:
                         for e in range(self._edge_num):
                             if vehicles_under_V2I_communication_range[i][e][now] == 1:
@@ -2134,6 +2197,7 @@ class VECEnv:
                                 if len(task_offloaded_at_cloud["cloud"]) < self._maximum_task_offloaded_at_cloud_number:
                                     task_offloaded_at_cloud["cloud"].append({"client_vehicle_index": i, "task_index": task_index, "edge_index": e, "task": tasks_of_vehicle_i[j][2]})
                                     self._task_processed_at_cloud[self.cur_step] += 1
+                                break
         
         ave_task_processed_at_local = 0
         ave_task_processed_at_vehicle = 0
@@ -2419,12 +2483,13 @@ class VECEnv:
                     + "average task processed at other edge: " + str(np.mean(self._task_processed_at_other_edge)) + "\n" \
                     + "average task processed at cloud: " + str(np.mean(self._task_processed_at_cloud)) + "\n" \
                     + "average task successfully processed num: " + str(np.mean(self._task_successfully_processed_num)) + "\n" \
-                    + "average task num of each client vehicle: " + str(np.mean(self._ave_task_num_of_each_client_vehicle)) + "\n" \
-                    + "average task processed at local: " + str(np.mean(self._avg_task_processed_at_local)) + "\n" \
-                    + "average task processed at vehicle: " + str(np.mean(self._avg_task_processed_at_vehicle)) + "\n" \
-                    + "average task processed at edge: " + str(np.mean(self._avg_task_processed_at_edge)) + "\n" \
-                    + "average task processed at cloud: " + str(np.mean(self._avg_task_processed_at_cloud)) + "\n" \
-                    + "average task uploaded at each edge: " + str(np.mean(self._avg_task_uploaded_at_each_edge)) + "\n" )
+                    + "average avg task num of each client vehicle: " + str(np.mean(self._ave_task_num_of_each_client_vehicle)) + "\n" \
+                    + "average avg task processed at local: " + str(np.mean(self._avg_task_processed_at_local)) + "\n" \
+                    + "average avg task processed at vehicle: " + str(np.mean(self._avg_task_processed_at_vehicle)) + "\n" \
+                    + "average avg task processed at edge: " + str(np.mean(self._avg_task_processed_at_edge)) + "\n" \
+                    + "average avg task processed at cloud: " + str(np.mean(self._avg_task_processed_at_cloud)) + "\n" \
+                    + "average avg task uploaded at each edge: " + str(np.mean(self._avg_task_uploaded_at_each_edge)) + "\n" \
+                    + "*************************************************************************************************************" + "\n")
             with open(complete_file_name, "a+") as f:
                 f.write("episode_index: " + str(self._episode_index) + "\n" \
                     + "reward: " + str(self._reward) + "\n" \
@@ -2476,6 +2541,7 @@ class VECEnv:
                     + "average cc res queue: " + str(np.mean(self._cc_res_queues)) + "\n" \
                     + "task_num_sum: " + str(self._task_num_sum) + "\n" \
                     + "average task num: " + str(self._task_num_sum / self._slot_length) + "\n" \
+                    + "task_nums: " + str(self._task_nums) + "\n" \
                     + "task_uploaded_at_edge: " + str(self._task_uploaded_at_edge) + "\n" \
                     + "average task uploaded at edge: " + str(np.mean(self._task_uploaded_at_edge)) + "\n" \
                     + "task_processed_at_local: " + str(self._task_processed_at_local) + "\n" \
@@ -2493,16 +2559,17 @@ class VECEnv:
                     + "task_successfully_processed_num: " + str(self._task_successfully_processed_num) + "\n" \
                     + "average task successfully processed num: " + str(np.mean(self._task_successfully_processed_num)) + "\n" \
                     + "avg task num of each client vehicle: " + str(self._ave_task_num_of_each_client_vehicle) + "\n" \
-                    + "average task num of each client vehicle: " + str(np.mean(self._ave_task_num_of_each_client_vehicle)) + "\n" \
+                    + "average avg task num of each client vehicle: " + str(np.mean(self._ave_task_num_of_each_client_vehicle)) + "\n" \
                     + "avg task processed at local: " + str(self._avg_task_processed_at_local) + "\n" \
-                    + "average task processed at local: " + str(np.mean(self._avg_task_processed_at_local)) + "\n" \
+                    + "average avg task processed at local: " + str(np.mean(self._avg_task_processed_at_local)) + "\n" \
                     + "avg task processed at vehicle: " + str(self._avg_task_processed_at_vehicle) + "\n" \
-                    + "average task processed at vehicle: " + str(np.mean(self._avg_task_processed_at_vehicle)) + "\n" \
+                    + "average avg task processed at vehicle: " + str(np.mean(self._avg_task_processed_at_vehicle)) + "\n" \
                     + "avg task processed at edge: " + str(self._avg_task_processed_at_edge) + "\n" \
-                    + "average task processed at edge: " + str(np.mean(self._avg_task_processed_at_edge)) + "\n" \
+                    + "average avg task processed at edge: " + str(np.mean(self._avg_task_processed_at_edge)) + "\n" \
                     + "avg task processed at cloud: " + str(self._avg_task_processed_at_cloud) + "\n" \
-                    + "average task processed at cloud: " + str(np.mean(self._avg_task_processed_at_cloud)) + "\n" \
+                    + "average avg task processed at cloud: " + str(np.mean(self._avg_task_processed_at_cloud)) + "\n" \
                     + "avg task uploaded at each edge: " + str(self._avg_task_uploaded_at_each_edge) + "\n" \
-                    + "average task uploaded at each edge: " + str(np.mean(self._avg_task_uploaded_at_each_edge)) + "\n" )
+                    + "average avg task uploaded at each edge: " + str(np.mean(self._avg_task_uploaded_at_each_edge)) + "\n" \
+                    + "*************************************************************************************************************" + "\n")
         except:
             raise Exception("No such file: " + self._resutls_file_name)

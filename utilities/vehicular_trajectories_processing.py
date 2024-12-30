@@ -14,7 +14,7 @@ class TrajectoriesProcessing(object):
         file_name_key : Optional[str] = "",
         vehicle_number : Optional[int] = 10,  # 定义车辆数目
         start_time : Optional[str] = "2005-04-13 16:00:00",  # 定义开始时间
-        slot_length : Optional[int] = 300,
+        slot_length : Optional[int] = 100,
         slection_way : Optional[str] = "random",  # 定义车辆选择方式, 'random', 'max_duration', 'first'
         filling_way : Optional[str] = 'linear',  # 定义缺失值填充方式
         chunk_size: Optional[int] = 100000,   # 定义每块的大小（根据实际情况进行调整）

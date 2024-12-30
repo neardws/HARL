@@ -71,7 +71,7 @@ def generate_vehicles(
         file_name_key=file_name_key,
         vehicle_number=vehicle_num,
         start_time=start_time,
-        slot_length=slot_length,
+        # slot_length=slot_length,
         slection_way=slection_way,
         filling_way=filling_way,
         chunk_size=chunk_size,
