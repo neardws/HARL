@@ -1,123 +1,123 @@
 # This is the configuration file for the HAPPO algorithm.
-seed:
+seed:   # 用于控制随机数生成器的种子
   # whether to use the specified seed
-  seed_specify: True
+  seed_specify: True      # 是否使用指定的种子
   # seed
-  seed: 1
-device:
+  seed: 42                 # 随机数种子值，确保实验可以复现
+device:       # 有关硬件设备的设置
   # whether to use CUDA
-  cuda: True
+  cuda: True          # 是否使用 CUDA（GPU 加速）
   # whether to set CUDA deterministic
-  cuda_deterministic: True
+  cuda_deterministic: True      # 是否设置 CUDA 为确定性模式，确保结果可复现
   # arg to torch.set_num_threads
-  torch_threads: 4
-train:
+  torch_threads: 4              # PyTorch 使用的线程数
+train:    # 训练过程中的多个参数。
   # number of parallel environments for training data collection
-  n_rollout_threads: 20
+  n_rollout_threads: 20       # 进行训练数据采集时并行环境的数量
   # number of total training steps    # the real episodes is num_env_steps // episode_length // n_rollout_theads
-  num_env_steps: 1000000      
+  num_env_steps: 2580000      # 总的训练步骤数，即环境总步数    120000 次 等于 100 轮迭代 约 2 h
   # number of steps per environment per training data collection
-  episode_length: 100
+  episode_length: 50         # 每个环境下每次训练数据采集的步数
   # logging interval
-  log_interval: 5
+  log_interval: 5            # 日志记录的间隔步数
   # evaluation interval
-  eval_interval: 25
+  eval_interval: 25          # 评估间隔
   # whether to use ValueNorm
-  use_valuenorm: True
+  use_valuenorm: True        # 是否使用价值标准化
   # whether to use linear learning rate decay
-  use_linear_lr_decay: False
+  use_linear_lr_decay: False      # 是否使用线性学习率衰减
   # whether to consider the case of truncation when an episode is done
-  use_proper_time_limits: True
+  use_proper_time_limits: True    # 是否考虑截断情形，即当一个 episode 结束时的情况
   # if set, load models from this directory; otherwise, randomly initialise the models
-  model_dir: ~
-eval:
+  model_dir: ~                    # 模型加载目录；如果设置为 ~，表示随机初始化模型 
+eval:     #  评估过程的相关参数
   # whether to use evaluation
-  use_eval: True
+  use_eval: True                        # 是否执行评估
   # number of parallel environments for evaluation
-  n_eval_rollout_threads: 10
+  n_eval_rollout_threads: 10            # 评估时的并行环境数量
   # number of episodes per evaluation
-  eval_episodes: 20
-render:
+  eval_episodes: 20                     # 每次评估的 episode 数量
+render:     # 渲染过程的参数
   # whether to use render
-  use_render: False
+  use_render: False                     # 是否进行渲染
   # number of episodes to render
-  render_episodes: 10
-model:
+  render_episodes: 10                   # 渲染的 episode 数量
+model:    # 模型和网络参数设置
   # network parameters
   # hidden sizes for mlp module in the network
-  hidden_sizes: [128, 128]
+  hidden_sizes: [256, 256]          # 网络中 MLP 模块的隐藏层大小
   # activation function, choose from sigmoid, tanh, relu, leaky_relu, selu
-  activation_func: relu
+  activation_func: relu             # 激活函数，选择如下之一：sigmoid, tanh, relu, leaky_relu, selu
   # whether to use feature normalization
-  use_feature_normalization: True
+  use_feature_normalization: True   # 是否使用特征标准化
   # initialization method for network parameters, choose from xavier_uniform_, orthogonal_, ...
-  initialization_method: orthogonal_
+  initialization_method: orthogonal_    # 网络参数的初始化方法
   # gain of the output layer of the network.
-  gain: 0.01
+  gain: 0.01                            # 网络输出层的增益因子
   # recurrent parameters
   # whether to use rnn policy (data is not chunked for training)
-  use_naive_recurrent_policy: False
+  use_naive_recurrent_policy: False     # 是否使用原始 RNN 策略
   # whether to use rnn policy (data is chunked for training)
-  use_recurrent_policy: False
+  use_recurrent_policy: False           # 是否使用 RNN 策略（数据分块训练）
   # number of recurrent layers
-  recurrent_n: 1
+  recurrent_n: 1                        # 递归层的数量
   # length of data chunk; only useful when use_recurrent_policy is True; episode_length has to be a multiple of data_chunk_length
-  data_chunk_length: 10
+  data_chunk_length: 10                 # 数据分块长度，仅在使用递归策略时有用
   # optimizer parameters
   # actor learning rate
-  lr: 0.0001
+  lr: 0.00001                    # Actor 的学习率
   # lr: 0.0005
   # critic learning rate
-  critic_lr: 0.0001
+  critic_lr: 0.00001             # Critic 的学习率
   # critic_lr: 0.0005
   # eps in Adam
-  opti_eps: 0.00001
+  opti_eps: 0.00001             #  Adam 优化器中的 epsilon 值
   # weight_decay in Adam
-  weight_decay: 0
+  weight_decay: 0               # Adam 优化器的权重衰减
   # parameters of diagonal Gaussian distribution
-  std_x_coef: 1
+  std_x_coef: 1                 # 用于对角高斯分布的参数
   # parameters of diagonal Gaussian distribution
-  std_y_coef: 0.5
-algo:
+  std_y_coef: 0.5               # 用于对角高斯分布的参数
+algo:   # 算法的超参数设置
   # ppo parameters
   # number of epochs for actor update
-  ppo_epoch: 5
+  ppo_epoch: 5            # Actor 更新的 epochs 数量
   # number of epochs for critic update
-  critic_epoch: 5
+  critic_epoch: 5         # Critic 更新的 epochs 数量
   # whether to use clipped value loss
-  use_clipped_value_loss: True
+  use_clipped_value_loss: True      # 是否使用剪切价值损失
   # clip parameter
-  clip_param: 0.2
+  clip_param: 0.1                   #  剪切参数的值
   # number of mini-batches per epoch for actor update
-  actor_num_mini_batch: 1
+  actor_num_mini_batch: 1           # 每个 epoch 中 Actor 更新的小批量数量
   # number of mini-batches per epoch for critic update
-  critic_num_mini_batch: 1
+  critic_num_mini_batch: 1          # 每个 epoch 中 Critic 更新的小批量数量
   # coefficient for entropy term in actor loss
-  entropy_coef: 0.01
+  entropy_coef: 0.01                # Actor 损失中的熵项系数
   # coefficient for value loss
-  value_loss_coef: 1
+  value_loss_coef: 1                # 价值损失的系数
   # whether to clip gradient norm
-  use_max_grad_norm: True
+  use_max_grad_norm: True           # 是否剪切梯度范数
   # max gradient norm
-  max_grad_norm: 10.0
+  max_grad_norm: 5.0               # 梯度的最大范数
   # whether to use Generalized Advantage Estimation (GAE)
-  use_gae: True
+  use_gae: True                     # 是否使用广义优势估计（GAE）
   # discount factor
-  gamma: 0.99
+  gamma: 0.99                       # 折扣因子
   # GAE lambda
-  gae_lambda: 0.95
+  gae_lambda: 0.95                  # GAE 的 lambda 参数
   # whether to use huber loss
-  use_huber_loss: True
+  use_huber_loss: True              # 是否使用 Huber 损失
   # whether to use policy active masks
-  use_policy_active_masks: True
+  use_policy_active_masks: True     # 是否使用策略激活掩码
   # huber delta
-  huber_delta: 10.0
+  huber_delta: 10.0                 #  Huber 损失中的 delta 值
   # method of aggregating the probability of multi-dimensional actions, choose from prod, mean
-  action_aggregation: prod
+  action_aggregation: prod          # 聚合多维动作概率的方法，选择 'prod' 或 'mean'
   # whether to share parameter among actors
-  share_param: False
+  share_param: False                # 是否在 Actor 之间共享参数
   # whether to use a fixed optimisation order
-  fixed_order: False
-logger:
+  fixed_order: True                # 是否使用固定的优化顺序
+logger:         # 日志记录相关设置
   # logging directory
-  log_dir: "./results"
+  log_dir: "/root/tf-logs/"        # 日志记录的目录

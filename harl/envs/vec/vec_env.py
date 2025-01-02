@@ -322,6 +322,8 @@ class VECEnv:
         self.action_space = self.generate_action_space()
         self.true_action_space = self.generate_true_action_space()
         
+    
+        
         # init the actual queues
         self._lc_queues = [LCQueue(
             time_slot_num=self._slot_length,
@@ -472,11 +474,15 @@ class VECEnv:
         
         self.init_results_to_store()
         
+        print("max_action: ", self._max_action)
+        print("max_observation: ", self._max_observation)
+        
         self._init = True
         
         self.init_maximum_cost_and_phi_t()
         
         self._init = False
+
         
     def init_maximum_cost_and_phi_t(self):
         for _ in range(10):

@@ -14,6 +14,7 @@ if __name__ == '__main__':
     algo_args, env_args = get_defaults_yaml_args(algo, args['env'])
     
     env = VECEnv(env_args)
+    
     agent = ra_agent()
     
     max_action = env.get_max_action()

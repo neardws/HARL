@@ -3,9 +3,12 @@ device:
   cuda: False
   torch_threads: 4
 
-state_type: FP
+# max_action:  176
+# max_observation:  273
 
-slot_length: 60
+state_type: EP
+
+slot_length: 50
 task_num: 100
 task_distribution: "uniform"
 min_input_data_size_of_tasks: 0.01  # MB
@@ -13,7 +16,7 @@ max_input_data_size_of_tasks: 5.0   # MB
 min_cpu_cycles_of_tasks: 100        # cycles/bit
 max_cpu_cycles_of_tasks: 500        # cycles/bit
 
-vehicle_num: 100
+vehicle_num: 50
 vehicle_mobility_file_name_key: "I-80-Emeryville-CA-1650feet-0500pm-0515pm"
 vehicular_trajectories_processing_start_time: "2005-04-13 17:00:00"
 vehicular_trajectories_processing_selection_way: "max_duration"
