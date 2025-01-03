@@ -34,6 +34,7 @@ class delayQueue(baseQueue):
         task_of_client_vehicle = client_vehicles[self._client_vehicle_index].get_tasks_by_time(now)
         input = 0.0
         min_num = min(len(task_of_client_vehicle), self._maximum_task_generation_number)
+        # print("min_num: ", min_num)
         if min_num > 0:
             for j in range(min_num):
                 total_queue_length = self.compute_total_queue_length(

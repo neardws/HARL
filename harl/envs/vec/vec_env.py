@@ -1,4 +1,5 @@
 import gym
+import math
 import copy
 import numpy as np
 import time
@@ -26,6 +27,8 @@ from lyapunov_optimization.virtual_queues.vehicle_computing_resource_queue impor
 from lyapunov_optimization.virtual_queues.edge_computing_resource_queue import ec_ressource_queue
 from lyapunov_optimization.virtual_queues.cloud_compjuting_resource_queue import cc_ressource_queue
 from lyapunov_optimization.lyapunov_drift_plus_penalty.cost import compute_lc_computing_cost, compute_vc_computing_cost, compute_ec_computing_cost, compute_cc_computing_cost, compute_v2v_transmission_cost, compute_v2i_transmission_cost, compute_i2i_transmission_cost, compute_i2c_transmission_cost, compute_total_cost
+from sklearn.decomposition import PCA
+
 
 class VECEnv:
     def __init__(self, args):
@@ -87,6 +90,11 @@ class VECEnv:
         self._V2I_bandwidth: float = self.args["V2I_bandwidth"]
         self._white_gaussian_noise: int = self.args["white_gaussian_noise"]
         self._path_loss_exponent: int = self.args["path_loss_exponent"]
+
+        self._v2v_n_components: int = self.args["v2v_n_components"]
+        self._v2i_n_components: int = self.args["v2i_n_components"]  
+        self.v2v_pca = PCA(n_components=self._v2v_n_components)  # 设定 V2V 压缩后的维度
+        self.v2i_pca = PCA(n_components=self._v2i_n_components)  # 设定 V2I 压缩后的维度
         
         self._maximum_server_vehicle_num = 5
         
@@ -234,6 +242,19 @@ class VECEnv:
             server_vehicles=self._server_vehicles,
             time_slot_num=self._slot_length,
         )
+
+        # 收集初始训练数据
+        initial_v2v_data = self.collect_initial_v2v_data()
+
+        # 拟合 PCA 模型
+        self.v2v_pca.fit(initial_v2v_data)
+
+
+        # 收集用于拟合 V2I PCA 的初始数据
+        initial_v2i_data = self.collect_initial_v2i_data()
+
+        # 拟合 PCA 模型
+        self.v2i_pca.fit(initial_v2i_data)
         
         # v2v_connections = np.zeros((self._slot_length, ))
         # for t in range(self._slot_length):
@@ -306,23 +327,22 @@ class VECEnv:
         self._minimum_phi_t_ec_queue = np.full((self._edge_num,), np.inf)
         self._minimum_phi_t_cc_queue = np.inf
         
-        self.n_agents : int = self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num + 1
+        self.n_agents : int = 2
+        
         self.state_space = self.generate_state_space()
         self.share_observation_space = self.repeat(self.state_space)
         
-        self._client_vehicle_observation, self._client_vehicle_observation_2, self._server_vehicle_observation, \
-            self._edge_node_observation, self._cloud_observation, self._max_observation = self.init_observation_number_of_agents()
+        self._max_observation, self._task_offloading_agent_observation_number, \
+            self._resource_allocation_agent_observation_number  = self.init_observation_number_of_agents()
         
         self.observation_space = self.generate_observation_space()
         self.true_observation_space = self.generate_true_observation_space()
         
-        self._max_action, self._client_vehicle_action, self._client_vehicle_action2, self._server_vehicle_action, \
-            self._edge_node_action, self._cloud_action = self.init_action_number_of_agents()
+        self._max_action, self._task_offloading_agent_action_number, \
+            self._resource_allocation_agent_action_number = self.init_action_number_of_agents()
         
         self.action_space = self.generate_action_space()
         self.true_action_space = self.generate_true_action_space()
-        
-    
         
         # init the actual queues
         self._lc_queues = [LCQueue(
@@ -476,6 +496,8 @@ class VECEnv:
         
         print("max_action: ", self._max_action)
         print("max_observation: ", self._max_observation)
+
+
         
         self._init = True
         
@@ -483,6 +505,39 @@ class VECEnv:
         
         self._init = False
 
+    def collect_initial_v2v_data(self):
+        '''
+        收集用于拟合 V2V PCA 的初始数据
+        假设您有一个方法或循环来获取多个时间步的 V2V 连接状态
+        '''
+        data = []
+
+        for step in range(self._slot_length):
+            # 假设您在每个时间步都能获取到 _distance_matrix_between_client_vehicles_and_server_vehicles
+            v2v_connections = []
+            for client in range(self._client_vehicle_num):
+                for server in range(self._server_vehicle_num):
+                    connection = self._distance_matrix_between_client_vehicles_and_server_vehicles[client][server][step]
+                    v2v_connections.append(connection)
+            data.append(v2v_connections)
+
+        return np.array(data)
+
+    def collect_initial_v2i_data(self):
+        '''
+        收集用于拟合 V2I PCA 的初始数据
+        '''
+        data = []
+
+        for step in range(self._slot_length):
+            v2i_connections = []
+            for client in range(self._client_vehicle_num):
+                for edge in range(self._edge_num):
+                    connection = self._distance_matrix_between_client_vehicles_and_edge_nodes[client][edge][step]
+                    v2i_connections.append(connection)
+            data.append(v2i_connections)
+
+        return np.array(data)
         
     def init_maximum_cost_and_phi_t(self):
         for _ in range(10):
@@ -505,9 +560,7 @@ class VECEnv:
         return actions
     
     def init_results_to_store(self):
-        
-         # the results need to be stored
-        
+        # the results need to be stored
         self._reward = 0.0
         self._rewards = np.zeros((self._slot_length, ))
         self._costs = np.zeros((self._slot_length, ))
@@ -554,7 +607,6 @@ class VECEnv:
         self._avg_task_processed_at_local_edge = np.zeros((self._slot_length, ))
         self._avg_task_processed_at_other_edge = np.zeros((self._slot_length, ))
         self._avg_task_processed_at_cloud = np.zeros((self._slot_length, ))
-        
     
     def obtain_task_generation_numbers(
         self,
@@ -653,16 +705,21 @@ class VECEnv:
         
         # print("vehicles_under_V2V_communication_range: ", self._vehicles_under_V2V_communication_range)
         # print("vehicles_under_V2I_communication_range: ", self._vehicles_under_V2V_communication_range)
-        
         # now_time = time.time()
         
         processed_actions = self.process_actions(actions)   # covert the actions into the value of [0, 1]
+
+        # print("processed_actions: ", processed_actions)
         
         task_offloading_actions, transmission_power_allocation_actions, \
             computation_resource_allocation_actions = self.transform_actions(
                 actions=processed_actions,
                 vehicles_under_V2V_communication_range=self._vehicles_under_V2V_communication_range,)
         
+        # print("task_offloading_actions: ", task_offloading_actions)
+        # print("transmission_power_allocation_actions: ", transmission_power_allocation_actions)
+        # print("computation_resource_allocation_actions: ", computation_resource_allocation_actions)
+
         # end_time = time.time()
         # print("transform_actions time: ", end_time - now_time)
         
@@ -1014,7 +1071,7 @@ class VECEnv:
                     self._maximum_v2i_queue_length[edge_node_index] = self._v2i_queues[edge_node_index].get_queue(time_slot=self.cur_step + 1)
                 # end_time = time.time()
                 # v2i_time += end_time - now_time
-                 
+                
                 # now_time = time.time()                  
                 i2i_queue_input = self._i2i_queues[edge_node_index].compute_input(
                     task_offloaded_at_edge_nodes=self._task_offloaded_at_edge_nodes,
@@ -1595,345 +1652,16 @@ class VECEnv:
     def obtain_observation(self):
         observations = []
         
-        # print("self._lc_queue_backlogs: ", self._lc_queue_backlogs)
-        # print("self._v2v_queue_backlogs: ", self._v2v_queue_backlogs)
-        # print("self._vc_queue_backlogs: ", self._vc_queue_backlogs)
-        # print("self._v2i_queue_backlogs: ", self._v2i_queue_backlogs)
-        # print("self._i2i_queue_backlogs: ", self._i2i_queue_backlogs)
-        # print("self._ec_queue_backlogs: ", self._ec_queue_backlogs)
-        # print("self._i2c_queue_backlogs: ", self._i2c_queue_backlogs)
-        # print("self._cc_queue_backlogs: ", self._cc_queue_backlogs)
+        observation = self.obser()
         
-        # print("self._lc_queues: ", self._lc_queues)
-        # print("self._v2v_queues: ", self._v2v_queues)
-        # print("self._vc_queues: ", self._vc_queues)
-        # print("self._v2i_queues: ", self._v2i_queues)
-        # print("self._i2i_queues: ", self._i2i_queues)
-        # print("self._ec_queues: ", self._ec_queues)
-        # print("self._i2c_quque: ", self._i2c_quque)
-        # print("self._cc_queue: ", self._cc_queue)
+        for _ in range(self.n_agents):
+            observations.append(observation)
         
-        # print("* " * 20)
-
-        for agent_id in range(self.n_agents):
-            if agent_id < self._client_vehicle_num:
-                # 客户端车辆的观察
-                client_vehicle_index = agent_id
-                observation = np.zeros(self.observation_space[agent_id].shape)
-                index = 0
-                
-                # 任务信息
-                tasks_of_vehicle = self._client_vehicles[client_vehicle_index].get_tasks_by_time(now=self.cur_step)
-                min_num = min(len(tasks_of_vehicle), self._maximum_task_generation_number_of_vehicles)
-                for task in range(min_num):
-                    task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
-                    CPU_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
-                    if self._maximum_task_data_size != 0:
-                        observation[index] = task_data_size / self._maximum_task_data_size
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    if self._maximum_task_required_cycles != 0:
-                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
-                    else:
-                        observation[index] = 1
-                    index += 1
-                # 填充剩余的任务信息为零
-                for _ in range(min_num, self._maximum_task_generation_number_of_vehicles):
-                    observation[index] = 0
-                    index += 1
-                    observation[index] = 0
-                    index += 1
-
-                # 客户端队列累积
-                lc_backlog = self._lc_queue_backlogs[client_vehicle_index][self.cur_step]
-
-                if self._maximum_lc_queue_length[client_vehicle_index] != 0:
-                    observation[index] = lc_backlog / self._maximum_lc_queue_length[client_vehicle_index]
-                else:
-                    observation[index] = 1
-                index += 1
-
-                # V2V 连接信息
-                for server in range(self._server_vehicle_num):
-                    v2v_connection = self._vehicles_under_V2V_communication_range[client_vehicle_index][server][self.cur_step]
-                    observation[index] = v2v_connection
-                    index += 1
-                    
-                # 服务车辆的队列累积
-                for server in range(self._server_vehicle_num):
-                    # print("server: ", server)
-                    # print("self._v2v_queues: ", self._v2v_queues)
-                    # print("self._v2v_queues[server]: ", self._v2v_queues[server])
-                    # print("cur_step: ", self.cur_step)
-                    # print("self._v2v_queues[server].get_queue(time_slot=self.cur_step): ", self._v2v_queues[server].get_queue(time_slot=self.cur_step))
-                    # v2v_backlog = self._v2v_queues[server].get_queue(time_slot=self.cur_step)
-                    v2v_backlog = self._v2v_queue_backlogs[server][self.cur_step]
-                    if self._maximum_v2v_queue_length[server] != 0:
-                        observation[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    vc_backlog = self._vc_queue_backlogs[server][self.cur_step]
-                    if self._maximum_vc_queue_length[server] != 0:
-                        observation[index] = vc_backlog / self._maximum_vc_queue_length[server]
-                    else:
-                        observation[index] = 1
-                    index += 1
-                
-                # V2I 连接信息
-                for edge in range(self._edge_num):
-                    v2i_connection = self._vehicles_under_V2I_communication_range[client_vehicle_index][edge][self.cur_step]
-                    observation[index] = v2i_connection
-                    index += 1
-                
-                # 边缘节点的队列累积
-                for _ in range(self._edge_num):
-                    v2i_backlog = self._v2i_queue_backlogs[edge][self.cur_step]
-                    if self._maximum_v2i_queue_length[edge] != 0:
-                        observation[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    i2i_backlog = self._i2i_queue_backlogs[edge][self.cur_step]
-                    if self._maximum_i2i_queue_length[edge] != 0:
-                        observation[index] = i2i_backlog / self._maximum_i2i_queue_length[edge]
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    ec_backlog = self._ec_queue_backlogs[edge][self.cur_step]
-                    if self._maximum_ec_queue_length[edge] != 0:
-                        observation[index] = ec_backlog / self._maximum_ec_queue_length[edge]
-                    else:
-                        observation[index] = 1
-                    index += 1
-
-                # 云的队列累积
-                i2c_backlog = self._i2c_queue_backlogs[self.cur_step]
-                if self._maximum_i2c_queue_length != 0:
-                    observation[index] = i2c_backlog / self._maximum_i2c_queue_length
-                else:
-                    observation[index] = 1
-                index += 1
-                cc_backlog = self._cc_queue_backlogs[self.cur_step]
-                if self._maximum_cc_queue_length != 0:
-                    observation[index] = cc_backlog / self._maximum_cc_queue_length
-                else:
-                    observation[index] = 1
-                
-                if index != self._max_observation - 1:
-                    # padding the observation
-                    for _ in range(index, self._max_observation):
-                        observation[_] = 0
-                
-                observations.append(observation)
-
-            elif agent_id < self._client_vehicle_num * 2:
-                # 客户端车辆的另一种观察（功率分配）
-                vehicle_index = agent_id - self._client_vehicle_num
-                observation = np.zeros(self.observation_space[agent_id].shape)
-                index = 0
-                
-                # 任务信息
-                tasks_offloaded_at_vehicle = self._task_offloaded_at_client_vehicles["client_vehicle_" + str(vehicle_index)]
-                min_num = min(len(tasks_offloaded_at_vehicle), self._maximum_task_offloaded_at_client_vehicle_number)
-                
-                for task_index in range(min_num):
-                    task_data_size = tasks_offloaded_at_vehicle[task_index]["task"].get_input_data_size()
-                    CPU_cycles = tasks_offloaded_at_vehicle[task_index]["task"].get_requested_computing_cycles()
-                    if self._maximum_task_data_size != 0:
-                        observation[index] = task_data_size / self._maximum_task_data_size
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    if self._maximum_task_required_cycles != 0:
-                        observation[index] = CPU_cycles / self._maximum_task_required_cycles    
-                    else:
-                        observation[index] = 1
-                    index += 1
-                # 填充剩余的任务信息为零
-                for _ in range(min_num, self._maximum_task_offloaded_at_client_vehicle_number):
-                    observation[index] = 0
-                    index += 1
-                    observation[index] = 0
-                    index += 1
-
-                # 客户端队列累积
-                lc_backlog = self._lc_queue_backlogs[vehicle_index][self.cur_step]
-                if self._maximum_lc_queue_length[vehicle_index] != 0:
-                    observation[index] = lc_backlog / self._maximum_lc_queue_length[vehicle_index]
-                else:
-                    observation[index] = 1
-                index += 1
-
-                # V2V 连接信息
-                for server in range(self._server_vehicle_num):
-                    v2v_connection = self._vehicles_under_V2V_communication_range[vehicle_index][server][self.cur_step]
-                    observation[index] = v2v_connection
-                    index += 1
-                    
-                # 服务车辆的队列累积
-                for server in range(self._server_vehicle_num):
-                    v2v_backlog = self._v2v_queue_backlogs[server][self.cur_step]
-                    if self._maximum_v2v_queue_length[server] != 0:
-                        observation[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
-                    else:
-                        observation[index] = 1
-                    index += 1
-                
-                # V2I 连接信息
-                for edge in range(self._edge_num):
-                    v2i_connection = self._vehicles_under_V2I_communication_range[vehicle_index][edge][self.cur_step]
-                    observation[index] = v2i_connection
-                    index += 1
-                
-                # 边缘节点的队列累积
-                for _ in range(self._edge_num):
-                    v2i_backlog = self._v2i_queue_backlogs[edge][self.cur_step]
-                    if self._maximum_v2i_queue_length[edge] != 0:
-                        observation[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
-                    else:
-                        observation[index] = 1
-                    index += 1
-                
-                index -= 1
-                if index != self._max_observation - 1:
-                    # padding the observation
-                    for _ in range(index, self._max_observation):
-                        observation[_] = 0
-
-                observations.append(observation)
-
-            elif agent_id < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                # 服务器车辆的观察
-                observation = np.zeros(self.observation_space[agent_id].shape)
-                index = 0
-                
-                server_vehicle_index = agent_id - self._client_vehicle_num * 2
-                # 获取任务信息和队列累积
-                server_tasks = self._task_offloaded_at_server_vehicles["server_vehicle_" + str(server_vehicle_index)]
-                min_num = min(len(server_tasks), self._maximum_task_offloaded_at_server_vehicle_number)
-                for task in range(min_num):
-                    task_data_size = server_tasks[task]["task"].get_input_data_size()
-                    CPU_cycles = server_tasks[task]["task"].get_requested_computing_cycles()
-                    if self._maximum_task_data_size != 0:
-                        observation[index] = task_data_size / self._maximum_task_data_size
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    if self._maximum_task_required_cycles != 0:
-                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
-                    else:
-                        observation[index] = 1
-                    index += 1
-                for _ in range(min_num, self._maximum_task_offloaded_at_server_vehicle_number):
-                    observation[index] = 0
-                    index += 1
-                    observation[index] = 0
-                    index += 1
-
-                backlog = self._vc_queue_backlogs[server_vehicle_index][self.cur_step]
-                if self._maximum_vc_queue_length[server_vehicle_index] != 0:
-                    observation[index] = backlog / self._maximum_vc_queue_length[server_vehicle_index]
-                else:
-                    observation[index] = 1
-                    
-                if index != self._max_observation - 1:
-                    # padding the observation
-                    for _ in range(index, self._max_observation):
-                        observation[_] = 0
-                
-                observations.append(observation)
-
-            # 处理边缘节点和云的观察
-            elif agent_id < self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num:
-                observation = np.zeros(self.observation_space[agent_id].shape)
-                index = 0
-                
-                edge_node_index = agent_id - self._client_vehicle_num * 2 - self._server_vehicle_num
-                
-                edge_tasks = self._task_offloaded_at_edge_nodes["edge_node_" + str(edge_node_index)]
-                min_num = min(len(edge_tasks), self._maximum_task_offloaded_at_edge_node_number)
-                for task in range(min_num):
-                    task_data_size = edge_tasks[task]["task"].get_input_data_size()
-                    CPU_cycles = edge_tasks[task]["task"].get_requested_computing_cycles()
-                    if self._maximum_task_data_size != 0:
-                        observation[index] = task_data_size / self._maximum_task_data_size
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    if self._maximum_task_required_cycles != 0:
-                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
-                    else:
-                        observation[index] = 1
-                    index += 1
-                for _ in range(min_num, self._maximum_task_offloaded_at_edge_node_number):
-                    observation[index] = 0
-                    index += 1
-                    observation[index] = 0
-                    index += 1
-
-                ec_backlog = self._ec_queue_backlogs[edge_node_index][self.cur_step]
-                if self._maximum_ec_queue_length[edge_node_index] != 0:
-                    observation[index] = ec_backlog / self._maximum_ec_queue_length[edge_node_index]
-                else:
-                    observation[index] = 1
-                
-                if index != self._max_observation - 1:
-                    # padding the observation
-                    for _ in range(index, self._max_observation):
-                        observation[_] = 0
-
-                observations.append(observation)
-
-            else:
-                observation = np.zeros(self.observation_space[agent_id].shape)
-                index = 0
-                
-                cloud_tasks = self._task_offloaded_at_cloud["cloud"]
-                min_num = min(len(cloud_tasks), self._maximum_task_offloaded_at_cloud_number)
-                for task in range(min_num):
-                    task_data_size = cloud_tasks[task]["task"].get_input_data_size()
-                    CPU_cycles = cloud_tasks[task]["task"].get_requested_computing_cycles()
-                    if self._maximum_task_data_size != 0:
-                        observation[index] = task_data_size / self._maximum_task_data_size
-                    else:
-                        observation[index] = 1
-                    index += 1
-                    if self._maximum_task_required_cycles != 0:
-                        observation[index] = CPU_cycles / self._maximum_task_required_cycles
-                    else:
-                        observation[index] = 1
-                    index += 1
-                for _ in range(min_num, self._maximum_task_offloaded_at_cloud_number):
-                    observation[index] = 0
-                    index += 1
-                    observation[index] = 0
-                    index += 1
-                    
-                cc_backlog = self._cc_queue_backlogs[self.cur_step]
-                if self._maximum_cc_queue_length != 0:
-                    observation[index] = cc_backlog / self._maximum_cc_queue_length
-                else:
-                    observation[index] = 1
-                
-                if index != self._max_observation - 1:
-                    # padding the observation
-                    for _ in range(index, self._max_observation):
-                        observation[_] = 0  
-                
-                # if np.isnan(observation).any():
-                #     print("*** " * 20)
-                #     print("observation: ", observation)
-                #     print("is observation contains nan: ", np.isnan(observation).any())
-                
-                observations.append(observation)
-
         return observations
-
-    def state(self):
-        # 初始化一个状态数组，形状为 (state_space_number,)
-        state = np.zeros(self.state_space.shape)  # self.state_space 是通过 generate_state_space 生成的
+    
+    def obser(self):
+        # 初始化一个状态数组，形状为 (self._max_observation,)
+        observation = np.zeros((self._max_observation, ))  # self.state_space 是通过 generate_state_space 生成的
 
         index = 0
 
@@ -1945,60 +1673,66 @@ class VECEnv:
                 task_data_size = tasks_of_vehicle[task][2].get_input_data_size()
                 CPU_cycles = tasks_of_vehicle[task][2].get_requested_computing_cycles()
                 if self._maximum_task_data_size != 0:
-                    state[index] = task_data_size / self._maximum_task_data_size
+                    observation[index] = task_data_size / self._maximum_task_data_size
                 else:
-                    state[index] = 1
+                    observation[index] = 1
                 index += 1
                 if self._maximum_task_required_cycles != 0:
-                    state[index] = CPU_cycles / self._maximum_task_required_cycles
+                    observation[index] = CPU_cycles / self._maximum_task_required_cycles
                 else:
-                    state[index] = 1
+                    observation[index] = 1
                 index += 1
             for _ in range(min_num, self._maximum_task_generation_number_of_vehicles):
-                state[index] = 0
+                observation[index] = 0
                 index += 1
-                state[index] = 0
+                observation[index] = 0
                 index += 1
 
         # 2. 客户端车辆的队列累积
         for client in range(self._client_vehicle_num):
             lc_backlog = self._lc_queue_backlogs[client][self.cur_step]  # 获取客户端车辆的队列累积
-            state[index] = lc_backlog
+            observation[index] = lc_backlog
             if self._maximum_lc_queue_length[client] != 0:
-                state[index] /= self._maximum_lc_queue_length[client]
+                observation[index] /= self._maximum_lc_queue_length[client]
             else:
-                state[index] = 1
+                observation[index] = 1
             index += 1
 
         # 3. V2V 连接信息
+        v2v_connections = []
         for client in range(self._client_vehicle_num):
             for server in range(self._server_vehicle_num):
-                v2v_connection = self._vehicles_under_V2V_communication_range[client][server][self.cur_step]  # 获取 V2V 连接信息
-                state[index] = v2v_connection
-                index += 1
+                v2v_connections.append(self._distance_matrix_between_client_vehicles_and_server_vehicles[client][server][self.cur_step])
+        v2v_connections = np.array(v2v_connections).reshape(1, -1)
+        v2v_embedded = self.v2v_pca.transform(v2v_connections)[0]
+        observation[index:index + self.v2v_pca.n_components_] = v2v_embedded
+        index += self.v2v_pca.n_components_
                 
         # 4. 服务器车辆的队列累积
         for server in range(self._server_vehicle_num):
             v2v_backlog = self._v2v_queue_backlogs[server][self.cur_step]  # 获取服务器车辆的队列累积
             if self._maximum_v2v_queue_length[server] != 0:
-                state[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
+                observation[index] = v2v_backlog / self._maximum_v2v_queue_length[server]
             else:
-                state[index] = 1
+                observation[index] = 1
             index += 1
             vc_backlog = self._vc_queue_backlogs[server][self.cur_step]  # 获取服务器车辆的队列累积
             if self._maximum_vc_queue_length[server] != 0:
-                state[index] = vc_backlog / self._maximum_vc_queue_length[server]
+                observation[index] = vc_backlog / self._maximum_vc_queue_length[server]
             else:
-                state[index] = 1
+                observation[index] = 1
 
             index += 1
 
         # 5. V2I 连接信息
+        v2i_connections = []
         for client in range(self._client_vehicle_num):
             for edge in range(self._edge_num):
-                v2i_connection = self._vehicles_under_V2I_communication_range[client][edge][self.cur_step]  # 获取 V2I 连接信息
-                state[index] = v2i_connection
-                index += 1
+                v2i_connections.append(self._distance_matrix_between_client_vehicles_and_edge_nodes[client][edge][self.cur_step])
+        v2i_connections = np.array(v2i_connections).reshape(1, -1)
+        v2i_embedded = self.v2i_pca.transform(v2i_connections)[0]
+        observation[index:index + self.v2i_pca.n_components_] = v2i_embedded
+        index += self.v2i_pca.n_components_
 
         # 6. 边缘节点的队列累积
         for edge in range(self._edge_num):
@@ -2006,33 +1740,43 @@ class VECEnv:
             i2i_backlog = self._i2i_queue_backlogs[edge][self.cur_step]  # 获取边缘节点的队列累积
             ec_backlog = self._ec_queue_backlogs[edge][self.cur_step]  # 获取边缘节点的队列累积
             if self._maximum_v2i_queue_length[edge] != 0:
-                state[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
+                observation[index] = v2i_backlog / self._maximum_v2i_queue_length[edge]
             else:
-                state[index] = 1
+                observation[index] = 1
             index += 1
             if self._maximum_i2i_queue_length[edge] != 0:
-                state[index] = i2i_backlog / self._maximum_i2i_queue_length[edge]
+                observation[index] = i2i_backlog / self._maximum_i2i_queue_length[edge]
             else:
-                state[index] = 1
+                observation[index] = 1
             index += 1
             if self._maximum_ec_queue_length[edge] != 0:
-                state[index] = ec_backlog / self._maximum_ec_queue_length[edge]
+                observation[index] = ec_backlog / self._maximum_ec_queue_length[edge]
             else:
-                state[index] = 1
+                observation[index] = 1
             index += 1
 
         # 7. 云的队列累积（I2C 和 CC）
         i2c_backlog = self._i2c_queue_backlogs[self.cur_step]  # 获取云的 I2C 队列
         if self._maximum_i2c_queue_length != 0:
-            state[index] = i2c_backlog / self._maximum_i2c_queue_length
+            observation[index] = i2c_backlog / self._maximum_i2c_queue_length
         else:
-            state[index] = 1
+            observation[index] = 1
         index += 1
         cc_backlog = self._cc_queue_backlogs[self.cur_step]  # 获取云的 CC 队列
         if self._maximum_cc_queue_length != 0:
-            state[index] = cc_backlog / self._maximum_cc_queue_length
+            observation[index] = cc_backlog / self._maximum_cc_queue_length
         else:
-            state[index] = 1
+            observation[index] = 1
+        
+        return observation
+
+    def state(self):
+        # 初始化一个状态数组，形状为 (state_space_number,)
+        state = np.zeros(self.state_space.shape)  # self.state_space 是通过 generate_state_space 生成的
+
+        state[0] = self.cur_step / (self._slot_length - 1)
+        
+        state[1] = 1 if self._done else 0
         
         return state
 
@@ -2065,9 +1809,8 @@ class VECEnv:
         
         return processed_actions
         
-        
     def transform_actions(
-        self, 
+        self,
         actions,
         vehicles_under_V2V_communication_range,
     ):
@@ -2077,68 +1820,74 @@ class VECEnv:
         
         for i in range(self.n_agents):
             true_action = actions[i][: self.true_action_space[i].shape[0]]
-            if i < self._client_vehicle_num:
-                # Task offloading actions
-                client_vehicle_index = i
+            if i == 0:      # task offloading agent
                 task_offloading_number = 1 + self._maximum_server_vehicle_num + self._edge_num + 1
-                for j in range(self._maximum_task_generation_number_of_vehicles):
-                    # each task offloading action contains the offloading destination, i.e., the task_offloading_number
-                    task_offloading_action = true_action[j * task_offloading_number: (j + 1) * task_offloading_number]
-                    max_index = np.argmax(task_offloading_action)
-                    if max_index == 0:
-                        task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Local"
-                    elif max_index >= 1 and max_index <= self._maximum_server_vehicle_num:
-                        tag = 0
-                        flag = False
-                        for server_vehicle_index in range(self._server_vehicle_num):
-                            if vehicles_under_V2V_communication_range[client_vehicle_index][server_vehicle_index][self.cur_step] == 1:
-                                tag += 1
-                                if max_index == tag:
-                                    flag = True
-                                    task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Server Vehicle " + str(server_vehicle_index)
-                        if not flag:
-                            task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Local"
-                    elif max_index >= 1 + self._maximum_server_vehicle_num and max_index < 1 + self._maximum_server_vehicle_num + self._edge_num:
-                        edge_node_index = max_index - 1 - self._maximum_server_vehicle_num
-                        task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Edge Node " + str(edge_node_index)   
-                    else:
-                        task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] = "Cloud"
-            elif i < self._client_vehicle_num * 2:
-                client_vehicle_index = i - self._client_vehicle_num
-                computation_resource_allocation = true_action[0:self._maximum_task_offloaded_at_client_vehicle_number]
+                for client_vehicle_index in range(self._client_vehicle_num):
+                    tasks_of_vehicle = self._client_vehicles[client_vehicle_index].get_tasks_by_time(self.cur_step)
+                    min_num = min(len(tasks_of_vehicle), self._maximum_task_generation_number_of_vehicles)
+                    for j in range(min_num):
+                        task_offloading_action = true_action[client_vehicle_index * self._maximum_task_generation_number_of_vehicles + j]
+                        if task_offloading_action < 0 or task_offloading_action > 1:
+                            raise ValueError("Task offloading action is out of range")
+                        # transform the task offloading action to the task offloading index
+                        # task_offloading_action [0, 1]
+                        # 0: local, 1 - self._maximum_server_vehicle_num: server vehicle, self._maximum_server_vehicle_num + 1 - self._maximum_server_vehicle_num + self._edge_num: edge node, self._maximum_server_vehicle_num + self._edge_num + 1: cloud
+                        task_offloading_index = math.floor(task_offloading_action * task_offloading_number)
+                        if task_offloading_index == 0:
+                            task_offloading_actions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(j)] = "Local"
+                        elif task_offloading_index >= 1 and task_offloading_index <= self._maximum_server_vehicle_num:
+                            tag = 0
+                            flag = False
+                            for server_vehicle_index in range(self._server_vehicle_num):
+                                if vehicles_under_V2V_communication_range[client_vehicle_index][server_vehicle_index][self.cur_step] == 1:
+                                    tag += 1
+                                    if task_offloading_index == tag:
+                                        flag = True
+                                        task_offloading_actions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(j)] = "Server Vehicle " + str(server_vehicle_index)
+                                        break
+                            if not flag:
+                                task_offloading_actions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(j)] = "Local"
+                        elif task_offloading_index >= 1 + self._maximum_server_vehicle_num and task_offloading_index < 1 + self._maximum_server_vehicle_num + self._edge_num:
+                            task_offloading_actions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(j)] = "Edge Node " + str(task_offloading_index - 1 - self._maximum_server_vehicle_num)
+                        else:
+                            task_offloading_actions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(j)] = "Cloud"
+            elif i == 1:    # resource allocation agent
+                client_action_number = self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2)
+                server_action_number = self._server_vehicle_num * self._maximum_task_offloaded_at_server_vehicle_number
+                edge_action_number = self._edge_num * self._maximum_task_offloaded_at_edge_node_number
+                cloud_action_number = self._maximum_task_offloaded_at_cloud_number
+                client_vehicle_actions = true_action[0: client_action_number]
+                server_vehicle_actions = true_action[client_action_number: client_action_number + server_action_number]
+                edge_node_actions = true_action[client_action_number + server_action_number: client_action_number + server_action_number + edge_action_number]
+                cloud_actions = true_action[client_action_number + server_action_number + edge_action_number: client_action_number + server_action_number + edge_action_number + cloud_action_number]
+
+                for i in range(self._client_vehicle_num):
+                    client_vehicle_action = client_vehicle_actions[i * (self._maximum_task_offloaded_at_client_vehicle_number + 2): (i + 1) * (self._maximum_task_offloaded_at_client_vehicle_number + 2)]
+                    computation_resource_allocation = client_vehicle_action[0: self._maximum_task_offloaded_at_client_vehicle_number]
+                    transmission_power_allocation = client_vehicle_action[-2:]
+                    computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
+                    transmission_power_allocation_normalized = self.normalize(transmission_power_allocation)
+                    computation_resource_allocation_actions["client_vehicle_" + str(i)] = computation_resource_allocation_normalized
+                    transmission_power_allocation_actions["client_vehicle_" + str(i)] = transmission_power_allocation_normalized
+
+                for i in range(self._server_vehicle_num):
+                    computation_resource_allocation = server_vehicle_actions[i * self._maximum_task_offloaded_at_server_vehicle_number: (i + 1) * self._maximum_task_offloaded_at_server_vehicle_number]
+                    computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
+                    computation_resource_allocation_actions["server_vehicle_" + str(i)] = computation_resource_allocation_normalized
+
+                for i in range(self._edge_num):
+                    computation_resource_allocation = edge_node_actions[i * self._maximum_task_offloaded_at_edge_node_number: (i + 1) * self._maximum_task_offloaded_at_edge_node_number]
+                    computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
+                    computation_resource_allocation_actions["edge_node_" + str(i)] = computation_resource_allocation_normalized
+
+                computation_resource_allocation = cloud_actions
                 computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("client vehicle computation_resource_allocation: ", computation_resource_allocation)
-                # print("client vehicle computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
-                # print("sum_normalized: ", sum(computation_resource_allocation_normalized))
-                transmission_power_allocation = true_action[-2:]
-                transmission_power_allocation_normalized = self.normalize(transmission_power_allocation)
-                # print("transmission_power_allocation: ", transmission_power_allocation)
-                # print("transmission_power_allocation_normalized: ", transmission_power_allocation_normalized)
-                # V2V transmission power allocation + V2I transmission power allocation
-                transmission_power_allocation_actions["client_vehicle_" + str(client_vehicle_index)] = transmission_power_allocation_normalized
-                computation_resource_allocation_actions["client_vehicle_" + str(client_vehicle_index)] = computation_resource_allocation_normalized
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                server_vehicle_index = i - self._client_vehicle_num * 2
-                computation_resource_allocation = true_action
-                computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("server vehicle computation_resource_allocation: ", computation_resource_allocation)
-                # print("server vehicle computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
-                computation_resource_allocation_actions["server_vehicle_" + str(server_vehicle_index)] = computation_resource_allocation_normalized
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                edge_node_index = i - self._client_vehicle_num * 2 - self._server_vehicle_num
-                computation_resource_allocation = true_action
-                computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("edge node computation_resource_allocation: ", computation_resource_allocation)
-                # print("edge node computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
-                computation_resource_allocation_actions["edge_node_" + str(edge_node_index)] = computation_resource_allocation_normalized
-            else:
-                computation_resource_allocation = true_action
-                computation_resource_allocation_normalized = self.normalize(computation_resource_allocation)
-                # print("cloud computation_resource_allocation: ", computation_resource_allocation)
-                # print("cloud computation_resource_allocation_normalized: ", computation_resource_allocation_normalized)
                 computation_resource_allocation_actions["cloud"] = computation_resource_allocation_normalized
+            else:
+                raise ValueError("Invalid agent index")
         return task_offloading_actions, transmission_power_allocation_actions, computation_resource_allocation_actions
-       
+        
+    
     def obtain_tasks_offloading_conditions(
         self, 
         task_offloading_actions,
@@ -2170,6 +1919,10 @@ class VECEnv:
             self._ave_task_num_of_each_client_vehicle[self.cur_step] += min_num
             if min_num > 0:
                 for j in range(min_num):
+                    task_key = f"client_vehicle_{i}_task_{j}"
+                    # 确保任务键存在
+                    if task_key not in task_offloading_actions:
+                        continue
                     task_index = tasks_of_vehicle_i[j][1]
                     if task_offloading_actions["client_vehicle_" + str(i) + "_task_" + str(j)] == "Local":
                         if len(task_offloaded_at_client_vehicles["client_vehicle_" + str(i)]) < self._maximum_task_offloaded_at_client_vehicle_number:
@@ -2234,89 +1987,40 @@ class VECEnv:
         return task_offloaded_at_client_vehicles, task_offloaded_at_server_vehicles, task_offloaded_at_edge_nodes, task_uploaded_at_edge_nodes, task_offloaded_at_cloud
     
     def init_action_number_of_agents(self):
-        # task offloading decisions of client vehicles 
-        task_offloading_number = 1 + self._maximum_server_vehicle_num + self._edge_num + 1      # 1 for local, 1 for cloud
-        client_vehicle_action = task_offloading_number * self._maximum_task_generation_number_of_vehicles
+        # task offloading agent
+        task_offloading_agent_action_number = self._client_vehicle_num * self._maximum_task_generation_number_of_vehicles
         
-        # transmission power allocation and computation resource allocation of client vehicles 
-        client_vehicle_action2 = self._maximum_task_offloaded_at_client_vehicle_number + 2
+        # resource allocation agent
+        resource_allocation_agent_action_number = self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2) + \
+                                                    self._server_vehicle_num * self._maximum_task_offloaded_at_server_vehicle_number + \
+                                                    self._edge_num * self._maximum_task_offloaded_at_edge_node_number + \
+                                                    self._maximum_task_offloaded_at_cloud_number
         
-        # computation resource allocation of server vehicles
-        server_vehicle_action = self._maximum_task_offloaded_at_server_vehicle_number
+        max_action = max(task_offloading_agent_action_number, resource_allocation_agent_action_number)
         
-        # computation resource allocation of edge nodes
-        edge_node_action = self._maximum_task_offloaded_at_edge_node_number
-        
-        # computation resource allocation of cloud
-        cloud_action = self._maximum_task_offloaded_at_cloud_number
-        
-        max_action = max(client_vehicle_action, client_vehicle_action2, server_vehicle_action, edge_node_action, cloud_action)
-        
-        return max_action, client_vehicle_action, client_vehicle_action2, server_vehicle_action, edge_node_action, cloud_action
+        return max_action, task_offloading_agent_action_number, resource_allocation_agent_action_number
     
     def generate_action_space(self):
-        if self.n_agents != self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num + 1:
-            raise ValueError("The number of agents is not correct.")
                 
         action_space = []
-        for i in range(self.n_agents):
-            if i < self._client_vehicle_num:
-                # task offloading decision
-                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
-                # TODO: the action space value bounds are not working
-                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2:
-                # transmission power allocation and computation resource allocation
-                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
-                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
-                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
-                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
-            else:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                # action_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self._max_action,), dtype=np.float32))
-                action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
-                
+        
+        action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
+        action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
+        
         return action_space
     
     def generate_true_action_space(self):
-        if self.n_agents != self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num + 1:
-            raise ValueError("The number of agents is not correct.")
-                
-        action_space = []
-        for i in range(self.n_agents):
-            if i < self._client_vehicle_num:
-                # task offloading decision
-                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_action,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2:
-                # transmission power allocation and computation resource allocation
-                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_action2,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._server_vehicle_action,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._edge_node_action,), dtype=np.float32))
-            else:
-                # computation resource allocation
-                # need to be normalized, the sum of the elements should be 1
-                action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._cloud_action,), dtype=np.float32))
-                
-        return action_space
+
+        true_action_space = []
+        
+        true_action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._task_offloading_agent_action_number,), dtype=np.float32))
+        true_action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._resource_allocation_agent_action_number,), dtype=np.float32))
+        
+        return true_action_space
     
     def init_observation_number_of_agents(self):
         
-        # the observation space of the client vehicle
+        # the observation space of the task offloading agent
         # conisits of task information (data size, CPU cycles)
         # the queue backlog of the lc_queue
         # the V2V connection based on the V2V distance
@@ -2324,107 +2028,54 @@ class VECEnv:
         # the V2I connection based on the V2I distance
         # the queue backlog of the V2I, I2I, EC queue of all edge nodes
         # the queue backlog of the I2C and CC queue of the cloud
-        client_vehicle_observation = \
-            2 * self._maximum_task_generation_number_of_vehicles + \
-            1 + \
-            self._server_vehicle_num + \
+        task_offloading_agent_observation_number = \
+            2 * self._maximum_task_generation_number_of_vehicles * self._client_vehicle_num + \
+            self._client_vehicle_num + \
+            self._v2v_n_components + \
             2 * self._server_vehicle_num + \
-            self._edge_num + \
-            3 *self._edge_num + \
+            self._v2i_n_components + \
+            3 * self._edge_num + \
             2
-            
-        # the observation space of the client vehcile when doing the transmission power allocation and computation resource allocation
-        # consists of task information (data size, CPU cycles)
+        
+        # the observation space of the resource allocation agent
+        # conisits of task information (data size, CPU cycles)
         # the queue backlog of the lc_queue
-        # the V2V connection based on the V2V distance 
-        # the queue backlog of the V2V queue of all server clients
+        # the V2V connection based on the V2V distance
+        # the queue backlog of the V2V and VC queue of all server clients
         # the V2I connection based on the V2I distance
-        # the queue backlog of the V2I queue of all edge nodes
-        client_vehicle_observation_2 = \
-            2 * self._maximum_task_offloaded_at_client_vehicle_number + \
-            1 + \
-            self._server_vehicle_num + \
-            self._server_vehicle_num + \
-            self._edge_num + \
-            self._edge_num
-            
-        # the observation space of the server vehicle
-        # consists of the task information (data size, CPU cycles)
-        # the queue backlog of the VC queue
-        server_vehicle_observation = \
-            2 * self._maximum_task_offloaded_at_server_vehicle_number + \
-            1
-        # the observation space of the edge node
-        # consists of the task information (data size, CPU cycles)
-        # the queue backlog of the EC queue
-        edge_node_observation = \
-            2 * self._maximum_task_offloaded_at_edge_node_number + \
-            1
-        # the observation space of the cloud
-        # consists of the task information (data size, CPU cycles)
-        # the queue backlog of the CC queue
-        cloud_observation = \
-            2 * self._maximum_task_offloaded_at_cloud_number + \
-            1
+        # the queue backlog of the V2I, I2I, EC queue of all edge nodes
+        # the queue backlog of the I2C and CC queue of the cloud
+    
+        resource_allocation_agent_observation_number = \
+            task_offloading_agent_observation_number
         
-        max_observation = max(client_vehicle_observation, client_vehicle_observation_2, server_vehicle_observation, edge_node_observation, cloud_observation)
+        max_observation = max(task_offloading_agent_observation_number, resource_allocation_agent_observation_number)
         
-        return client_vehicle_observation, client_vehicle_observation_2, server_vehicle_observation, edge_node_observation, cloud_observation, max_observation
+        return max_observation, task_offloading_agent_observation_number, resource_allocation_agent_observation_number
     
     def generate_observation_space(self):
-        if self.n_agents != self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num + 1:
-            raise ValueError("The number of agents is not correct.")
         
         observation_space = []
-        for i in range(self.n_agents):
-            if i < self._client_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
-            else:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation, ), dtype=np.float32))
+        
+        observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._task_offloading_agent_observation_number,), dtype=np.float32))
+        observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._resource_allocation_agent_observation_number,), dtype=np.float32))
+        
         return observation_space
     
     def generate_true_observation_space(self):
-        if self.n_agents != self._client_vehicle_num * 2 + self._server_vehicle_num + self._edge_num + 1:
-            raise ValueError("The number of agents is not correct.")
         
-        observation_space = []
+        true_observation_space = []
         
-        for i in range(self.n_agents):
-            if i < self._client_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_observation,), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._client_vehicle_observation_2, ), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._server_vehicle_observation, ), dtype=np.float32))
-            elif i < self._client_vehicle_num * 2 + self._server_vehicle_num +self._edge_num:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._edge_node_observation, ), dtype=np.float32))
-            else:
-                observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._cloud_observation, ), dtype=np.float32))
-        return observation_space
+        true_observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation,), dtype=np.float32))
+        true_observation_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_observation,), dtype=np.float32))
+        
+        return true_observation_space
     
     def generate_state_space(self):
         # the state space of the system
-        # conisits of task information (data size, CPU cycles) of all client vehicles
-        # the queue backlog of the lc_queue of all client vehicles
-        # the V2V connection based on the V2V distance of all client vehicles
-        # the queue backlog of the V2V and VC queue of all server clients of all server vehicles
-        # the V2I connection based on the V2I distance of all client vehicles
-        # the queue backlog of the V2I, I2I, EC queue of all edge nodes 
-        # the queue backlog of the I2C and CC queue of the cloud
-        state_space_number = \
-            self._client_vehicle_num * 2 * self._maximum_task_generation_number_of_vehicles + \
-            self._client_vehicle_num + \
-            self._client_vehicle_num * self._server_vehicle_num + \
-            2 * self._server_vehicle_num + \
-            self._client_vehicle_num *self._edge_num + \
-            3 *self._edge_num + \
-            2
+        # consists of time slot and is_done
+        state_space_number = 2
+        
         return gym.spaces.Box(low=0.0, high=1.0, shape=(state_space_number, ), dtype=np.float32)
     
     def repeat(self, a):

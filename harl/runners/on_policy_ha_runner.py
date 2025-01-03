@@ -91,6 +91,9 @@ class OnPolicyHARunner(OnPolicyBaseRunner):
                 actor_train_info = self.actor[agent_id].train(
                     self.actor_buffer[agent_id], advantages[:, :, agent_id].copy(), "FP"
                 )
+            
+            # # 梯度裁剪
+            # torch.nn.utils.clip_grad_norm_(self.actor[agent_id].parameters(), self.algo_args["algo"]["max_grad_norm"])
 
             # compute action log probs for updated agent
             new_actions_logprob, _, _ = self.actor[agent_id].evaluate_actions(
