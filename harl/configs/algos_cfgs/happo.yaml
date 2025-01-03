@@ -45,9 +45,9 @@ render:     # 渲染过程的参数
 model:    # 模型和网络参数设置
   # network parameters
   # hidden sizes for mlp module in the network
-  hidden_sizes: [256, 256]          # 网络中 MLP 模块的隐藏层大小
+  hidden_sizes: [1024, 1024]          # 网络中 MLP 模块的隐藏层大小
   # activation function, choose from sigmoid, tanh, relu, leaky_relu, selu
-  activation_func: relu             # 激活函数，选择如下之一：sigmoid, tanh, relu, leaky_relu, selu
+  activation_func: leaky_relu             # 激活函数，选择如下之一：sigmoid, tanh, relu, leaky_relu, selu
   # whether to use feature normalization
   use_feature_normalization: True   # 是否使用特征标准化
   # initialization method for network parameters, choose from xavier_uniform_, orthogonal_, ...
@@ -68,7 +68,7 @@ model:    # 模型和网络参数设置
   lr: 0.00001                    # Actor 的学习率
   # lr: 0.0005
   # critic learning rate
-  critic_lr: 0.00001             # Critic 的学习率
+  critic_lr: 0.000001             # Critic 的学习率
   # critic_lr: 0.0005
   # eps in Adam
   opti_eps: 0.00001             #  Adam 优化器中的 epsilon 值

@@ -656,15 +656,15 @@ class VECEnv:
         if maximum_task_offloaded_at_client_vehicle_number == 0:
             maximum_task_offloaded_at_client_vehicle_number = 1
         
-        maximum_task_offloaded_at_server_vehicle_number = int(average_vehicle_task_num * 3)
+        maximum_task_offloaded_at_server_vehicle_number = int(average_vehicle_task_num * 2)
         if maximum_task_offloaded_at_server_vehicle_number == 0:
             maximum_task_offloaded_at_server_vehicle_number = 1
         
-        maximum_task_offloaded_at_edge_node_number = int((average_sum * 0.25 + maximum_sum  * 0.25) / 2)
+        maximum_task_offloaded_at_edge_node_number = int((average_sum * 0.10 + maximum_sum  * 0.10) / 2)
         if maximum_task_offloaded_at_edge_node_number == 0:
             maximum_task_offloaded_at_edge_node_number = 1
             
-        maximum_task_offloaded_at_cloud_number = int((average_sum * 0.2 + maximum_sum  * 0.2) / 2)
+        maximum_task_offloaded_at_cloud_number = int((average_sum * 0.20 + maximum_sum  * 0.20) / 2)
         if maximum_task_offloaded_at_cloud_number == 0:
             maximum_task_offloaded_at_cloud_number = 1
         
@@ -1780,7 +1780,6 @@ class VECEnv:
         
         return state
 
-        
     def seed(self, seed):
         self._seed = seed
 
@@ -1832,7 +1831,7 @@ class VECEnv:
                         # transform the task offloading action to the task offloading index
                         # task_offloading_action [0, 1]
                         # 0: local, 1 - self._maximum_server_vehicle_num: server vehicle, self._maximum_server_vehicle_num + 1 - self._maximum_server_vehicle_num + self._edge_num: edge node, self._maximum_server_vehicle_num + self._edge_num + 1: cloud
-                        task_offloading_index = math.floor(task_offloading_action * task_offloading_number)
+                        task_offloading_index = math.floor(task_offloading_action * (task_offloading_number - 1))
                         if task_offloading_index == 0:
                             task_offloading_actions["client_vehicle_" + str(client_vehicle_index) + "_task_" + str(j)] = "Local"
                         elif task_offloading_index >= 1 and task_offloading_index <= self._maximum_server_vehicle_num:
@@ -1987,9 +1986,10 @@ class VECEnv:
         return task_offloaded_at_client_vehicles, task_offloaded_at_server_vehicles, task_offloaded_at_edge_nodes, task_uploaded_at_edge_nodes, task_offloaded_at_cloud
     
     def init_action_number_of_agents(self):
+
         # task offloading agent
         task_offloading_agent_action_number = self._client_vehicle_num * self._maximum_task_generation_number_of_vehicles
-        
+
         # resource allocation agent
         resource_allocation_agent_action_number = self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2) + \
                                                     self._server_vehicle_num * self._maximum_task_offloaded_at_server_vehicle_number + \
