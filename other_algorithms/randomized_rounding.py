@@ -39,10 +39,7 @@ class randomized_rounding_agent(object):
                 raise ValueError("Agent number is out of range")
         return actions
 
-    def randomized_rounding_single_one(self, max_action):
-        # 生成连续动作值
-        continuous_action = np.random.rand(max_action)
-        
+    def randomized_rounding_single_one(self, continuous_action):
         # 归一化概率向量
         prob_sum = np.sum(continuous_action)
         if prob_sum == 0:

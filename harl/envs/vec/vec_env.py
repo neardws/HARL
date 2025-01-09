@@ -496,14 +496,51 @@ class VECEnv:
         
         print("max_action: ", self._max_action)
         print("max_observation: ", self._max_observation)
-
-
         
-        self._init = True
+        # self._init = True
         
-        self.init_maximum_cost_and_phi_t()
+        # self.init_maximum_cost_and_phi_t()
         
         self._init = False
+
+    def get_client_vehicle_num(self):
+        return self._client_vehicle_num
+
+    def get_server_vehicle_num(self):
+        return self._server_vehicle_num
+
+    def get_edge_num(self):
+        return self._edge_num
+
+    def get_maximum_task_generation_number_of_vehicles(self):
+        return self._maximum_task_generation_number_of_vehicles
+
+    def get_maximum_server_vehicle_num(self):
+        return self._maximum_server_vehicle_num
+    
+    def get_v2v_n_components(self):
+        return self._v2v_n_components
+    
+    def get_v2i_n_components(self):
+        return self._v2i_n_components
+    
+    def get_maximum_task_offloaded_at_client_vehicle_number(self):
+        return self._maximum_task_offloaded_at_client_vehicle_number
+    
+    def get_maximum_task_offloaded_at_server_vehicle_number(self):
+        return self._maximum_task_offloaded_at_server_vehicle_number
+    
+    def get_maximum_task_offloaded_at_edge_node_number(self):
+        return self._maximum_task_offloaded_at_edge_node_number
+    
+    def get_maximum_task_offloaded_at_cloud_number(self):
+        return self._maximum_task_offloaded_at_cloud_number
+
+    def get_v2v_connections(self):
+        return self._vehicles_under_V2V_communication_range[:, :, self.cur_step]
+    
+    def get_v2i_connections(self):
+        return self._vehicles_under_V2I_communication_range[:, :, self.cur_step]
 
     def collect_initial_v2v_data(self):
         '''
@@ -807,6 +844,9 @@ class VECEnv:
             info,
             self.get_avail_actions(),
         )
+
+    def get_reward(self):
+        return self._rewards[self.cur_step]
         
     def update_self_queues(self):
         delay_queue = 0.0
