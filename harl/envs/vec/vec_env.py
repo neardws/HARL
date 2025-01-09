@@ -93,6 +93,9 @@ class VECEnv:
 
         self._v2v_n_components: int = self.args["v2v_n_components"]
         self._v2i_n_components: int = self.args["v2i_n_components"]  
+
+        self._is_network_output: bool = self.args["is_network_output"]
+
         self.v2v_pca = PCA(n_components=self._v2v_n_components)  # 设定 V2V 压缩后的维度
         self.v2i_pca = PCA(n_components=self._v2i_n_components)  # 设定 V2I 压缩后的维度
         
@@ -744,7 +747,12 @@ class VECEnv:
         # print("vehicles_under_V2I_communication_range: ", self._vehicles_under_V2V_communication_range)
         # now_time = time.time()
         
-        processed_actions = self.process_actions(actions)   # covert the actions into the value of [0, 1]
+        # print("actions: ", actions) 
+
+        if self._is_network_output:
+            processed_actions = self.process_actions(actions)   # covert the actions into the value of [0, 1]
+        else:
+            processed_actions = actions
 
         # print("processed_actions: ", processed_actions)
         
@@ -2044,8 +2052,8 @@ class VECEnv:
                 
         action_space = []
         
-        action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
-        action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
+        action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
+        action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._max_action,), dtype=np.float32))
         
         return action_space
     
@@ -2053,8 +2061,8 @@ class VECEnv:
 
         true_action_space = []
         
-        true_action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._task_offloading_agent_action_number,), dtype=np.float32))
-        true_action_space.append(gym.spaces.Box(low=-1.0, high=1.0, shape=(self._resource_allocation_agent_action_number,), dtype=np.float32))
+        true_action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._task_offloading_agent_action_number,), dtype=np.float32))
+        true_action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(self._resource_allocation_agent_action_number,), dtype=np.float32))
         
         return true_action_space
     

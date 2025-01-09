@@ -54,6 +54,9 @@ class GreedyAgent:
 
         actions[0] = task_offloading_actions
         
+        # print("task_offloading_actions: ", task_offloading_actions)
+        # print("task_offloading_actions_dict: ", task_offloading_actions_dict)
+
         # Resource Allocation Agent (agent_index = 1) 
         resource_allocation_actions = self._generate_resource_allocation_actions(obs[1], v2v_connections, v2i_connections, task_offloading_actions_dict)
         actions[1] = resource_allocation_actions
@@ -68,6 +71,12 @@ class GreedyAgent:
     ) -> np.ndarray:
         """为任务卸载代理生成贪心动作"""
         actions = np.zeros(self._client_vehicle_num * self._maximum_task_generation_number)
+
+        # 可卸载任务数量, 用数组表示，每个元素表示可卸载任务数量
+        client_vehicle_available_number = np.ones(self._client_vehicle_num) * self._maximum_task_offloaded_at_client_vehicle_number
+        server_vehicle_available_number = np.ones(self._server_vehicle_num) * self._maximum_task_offloaded_at_server_vehicle_number
+        edge_node_available_number = np.ones(self._edge_num) * self._maximum_task_offloaded_at_edge_node_number
+        cloud_available_number = np.ones(1) * self._maximum_task_offloaded_at_cloud_number
         
         # 解析观测中的队列状态
         queue_states = self._parse_queue_states(obs, v2v_connections, v2i_connections)
@@ -77,37 +86,81 @@ class GreedyAgent:
         for i in range(self._client_vehicle_num):
             for j in range(self._maximum_task_generation_number):
                 idx = i * self._maximum_task_generation_number + j
+
+                # 第一个任务放到本地
+                if j == 0:
+                    task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = "Local"
+                    client_vehicle_available_number[i] -= 1
+                    actions[idx] = 0
+                    continue
                 
                 # 计算每个卸载选项的得分
                 scores = self._compute_offloading_scores(queue_states, i)
-
-                # print("scores: ", scores)
                 
-                # 选择得分最高的选项
-                best_option = np.argmax(scores)
-
-                if best_option == 0:
-                    task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)] = "Local"
-                elif best_option >= 1 and best_option <= self._maximum_server_vehicle_num:
-                    tag = 0
-                    flag = False
-                    for server_vehicle_index in range(self._server_vehicle_num):
-                        if v2v_connections[i][server_vehicle_index] == 1:
-                            tag += 1
-                            if best_option == tag:
-                                flag = True
-                                task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)] = "Server Vehicle " + str(server_vehicle_index)
-                                break
-                    if not flag:
-                        task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)] = "Local"
-                    task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)] = "Server Vehicle " + str(best_option - 1)
-                elif best_option >= 1 + self._maximum_server_vehicle_num and best_option < 1 + self._maximum_server_vehicle_num + self._edge_num:
-                    task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)] = "Edge Node " + str(best_option - 1 - self._maximum_server_vehicle_num)
-                else:
-                    task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)] = "Cloud"
-
-                # 将选择归一化到[0,1]区间
-                actions[idx] = best_option / (self._task_offloading_number - 1)
+                # 按得分从高到低排序
+                sorted_options = np.argsort(scores)[::-1]
+                
+                offloading_done = False
+                
+                for option in sorted_options:
+                    if option == 0:  # 本地执行
+                        if client_vehicle_available_number[i] > 0:
+                            task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = "Local"
+                            client_vehicle_available_number[i] -= 1
+                            actions[idx] = option / (self._task_offloading_number - 1)
+                            offloading_done = True
+                            break
+                    elif option >= 1 and option <= self._maximum_server_vehicle_num:  # 服务车辆
+                        tag = 0
+                        for server_vehicle_index in range(self._server_vehicle_num):
+                            if v2v_connections[i][server_vehicle_index] == 1:
+                                tag += 1
+                                if option == tag and server_vehicle_available_number[server_vehicle_index] > 0:
+                                    task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = f"Server Vehicle {server_vehicle_index}"
+                                    server_vehicle_available_number[server_vehicle_index] -= 1
+                                    actions[idx] = option / (self._task_offloading_number - 1)
+                                    offloading_done = True
+                                    break
+                        if offloading_done:
+                            break
+                    elif option >= 1 + self._maximum_server_vehicle_num and option < 1 + self._maximum_server_vehicle_num + self._edge_num:  # 边缘节点
+                        edge_idx = option - 1 - self._maximum_server_vehicle_num
+                        if edge_node_available_number[edge_idx] > 0:
+                            task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = f"Edge Node {edge_idx}"
+                            edge_node_available_number[edge_idx] -= 1
+                            actions[idx] = option / (self._task_offloading_number - 1)
+                            offloading_done = True
+                            break
+                    elif option == self._task_offloading_number - 1:  # 云端
+                        if cloud_available_number[0] > 0:
+                            task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = "Cloud"
+                            cloud_available_number[0] -= 1
+                            actions[idx] = option / (self._task_offloading_number - 1)
+                            offloading_done = True
+                            break
+                
+                # 如果所有选项都不可用，则随机选择
+                if not offloading_done:
+                    # 随机选择一个卸载选项
+                    random_option = np.random.randint(0, self._task_offloading_number)
+                    actions[idx] = random_option / (self._task_offloading_number - 1)
+                    
+                    # 根据随机选择的选项设置对应的卸载目标
+                    if random_option == 0:
+                        task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = "Local"
+                    elif random_option <= self._maximum_server_vehicle_num:
+                        tag = 0
+                        for server_vehicle_index in range(self._server_vehicle_num):
+                            if v2v_connections[i][server_vehicle_index] == 1:
+                                tag += 1
+                                if random_option == tag:
+                                    task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = f"Server Vehicle {server_vehicle_index}"
+                                    break
+                    elif random_option < self._task_offloading_number - 1:
+                        edge_idx = random_option - 1 - self._maximum_server_vehicle_num
+                        task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = f"Edge Node {edge_idx}"
+                    else:
+                        task_offloading_actions_dict[f"client_vehicle_{i}_task_{j}"] = "Cloud"
 
         # 填充action 到self._max_action
         actions = np.pad(actions, (0, self._max_action - len(actions)), mode='constant', constant_values=0)
@@ -133,7 +186,7 @@ class GreedyAgent:
         # 解析观测中的资源需求状态
         resource_demands = self._parse_resource_demands(obs, v2v_connections, v2i_connections, task_offloading_actions_dict)
 
-        print("resource_demands: ", resource_demands)
+        # print("resource_demands: ", resource_demands)
         
         # 初始化动作数组
         actions = np.zeros(self._max_action)
@@ -240,51 +293,88 @@ class GreedyAgent:
     ) -> np.ndarray:
         """从观测中提取资源需求信息"""
         # 初始化资源需求数组
-
         resource_demands = np.zeros(self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2) + \
                                     self._server_vehicle_num * self._maximum_task_offloaded_at_server_vehicle_number + \
                                     self._edge_num * self._maximum_task_offloaded_at_edge_node_number + \
                                     self._maximum_task_offloaded_at_cloud_number)
         
         # 获取任务信息
-        task_info_size = int(self._client_vehicle_num * self._maximum_task_generation_number * 2)  # 确保是整数
-        task_sizes = obs[0:task_info_size:2]  # 数据大小
-        task_cycles = obs[1:task_info_size:2]  # CPU需求
-
+        task_info_size = self._client_vehicle_num * self._maximum_task_generation_number * 2
+        task_sizes = obs[0:task_info_size:2]
+        task_cycles = obs[1:task_info_size:2]
+        
         # reshape task_sizes and task_cycles
-        task_sizes = np.array(task_sizes)
-        task_cycles = np.array(task_cycles)
         task_sizes = task_sizes.reshape(self._client_vehicle_num, self._maximum_task_generation_number)
         task_cycles = task_cycles.reshape(self._client_vehicle_num, self._maximum_task_generation_number)
         
-        # 根据任务卸载决策，计算资源需求 TODO: 还是有问题
+        # 根据任务卸载决策，计算资源需求
+        task_offloaded_at_client_vehicles = {f"client_vehicle_{i}": [] for i in range(self._client_vehicle_num)}
+        task_offloaded_at_server_vehicles = {f"server_vehicle_{i}": [] for i in range(self._server_vehicle_num)}
+        task_offloaded_at_edge_nodes = {f"edge_node_{i}": [] for i in range(self._edge_num)}
+        task_offloaded_at_cloud = {"cloud": []}
+
+        # 解析任务卸载决策
         for i in range(self._client_vehicle_num):
             for j in range(self._maximum_task_generation_number):
-                task_offloading_action = task_offloading_actions_dict["client_vehicle_" + str(i) + "_task_" + str(j)]
-                if task_offloading_action == "Local":
-                    resource_demands[i * (self._maximum_task_offloaded_at_client_vehicle_number + 2) + j] += task_cycles[i][j] * task_sizes[i][j]
-                elif task_offloading_action.startswith("Server Vehicle"):
-                    server_vehicle_index = int(task_offloading_action.split(" ")[2])
-                    server_start_idx = self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2)
-                    resource_demands[server_start_idx + server_vehicle_index * self._maximum_task_offloaded_at_server_vehicle_number + j] += task_cycles[i][j] * task_sizes[i][j]        
-                elif task_offloading_action.startswith("Edge Node"):
-                    edge_node_index = int(task_offloading_action.split(" ")[2])
-                    edge_start_idx = self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2) + \
-                                   self._server_vehicle_num * self._maximum_task_offloaded_at_server_vehicle_number
-                    resource_demands[edge_start_idx + edge_node_index * self._maximum_task_offloaded_at_edge_node_number + j] += task_cycles[i][j] * task_sizes[i][j]
-                elif task_offloading_action.startswith("Cloud"):
-                    resource_demands[-1] += task_cycles[i][j] * task_sizes[i][j]
+                key = f"client_vehicle_{i}_task_{j}"
+                if key in task_offloading_actions_dict:
+                    action = task_offloading_actions_dict[key]
+                    if action == "Local":
+                        task_offloaded_at_client_vehicles[f"client_vehicle_{i}"].append((i, j))
+                    elif action.startswith("Server Vehicle"):
+                        server_idx = int(action.split(" ")[2])
+                        task_offloaded_at_server_vehicles[f"server_vehicle_{server_idx}"].append((i, j))
+                    elif action.startswith("Edge Node"):
+                        edge_idx = int(action.split(" ")[2])
+                        task_offloaded_at_edge_nodes[f"edge_node_{edge_idx}"].append((i, j))
+                    elif action == "Cloud":
+                        task_offloaded_at_cloud["cloud"].append((i, j))
 
-        # 根据V2V和V2I队列状态，计算通信资源需求
+        # print("task_offloaded_at_client_vehicles: ", task_offloaded_at_client_vehicles)
+        # print("task_offloaded_at_server_vehicles: ", task_offloaded_at_server_vehicles)
+        # print("task_offloaded_at_edge_nodes: ", task_offloaded_at_edge_nodes)
+        # print("task_offloaded_at_cloud: ", task_offloaded_at_cloud)
+
+        # 计算通信资源需求
         v2v_demand = np.mean(v2v_connections)
         v2i_demand = np.mean(v2i_connections)
-        # 为每个客户车辆分配通信资源需求
+
+        # 分配客户车辆资源
         for i in range(self._client_vehicle_num):
-            # 计算每个车辆的通信资源起始索引位置
-            start_idx = i * (self._maximum_task_offloaded_at_client_vehicle_number + 2) + self._maximum_task_offloaded_at_client_vehicle_number
-            # 为每个车辆分配V2V和V2I通信资源
-            resource_demands[start_idx] = v2v_demand
-            resource_demands[start_idx + 1] = v2i_demand
+            tasks = task_offloaded_at_client_vehicles[f"client_vehicle_{i}"]
+            base_idx = i * (self._maximum_task_offloaded_at_client_vehicle_number + 2)
+            
+            for j, (client_idx, task_idx) in enumerate(tasks[:self._maximum_task_offloaded_at_client_vehicle_number]):
+                resource_demands[base_idx + j] = task_cycles[client_idx][task_idx] * task_sizes[client_idx][task_idx]
+                
+            # 通信资源
+            comm_idx = base_idx + self._maximum_task_offloaded_at_client_vehicle_number
+            resource_demands[comm_idx] = v2v_demand
+            resource_demands[comm_idx + 1] = v2i_demand
+
+        # 分配服务车辆资源
+        server_base_idx = self._client_vehicle_num * (self._maximum_task_offloaded_at_client_vehicle_number + 2)
+        for i in range(self._server_vehicle_num):
+            tasks = task_offloaded_at_server_vehicles[f"server_vehicle_{i}"]
+            base_idx = server_base_idx + i * self._maximum_task_offloaded_at_server_vehicle_number
+            
+            for j, (client_idx, task_idx) in enumerate(tasks[:self._maximum_task_offloaded_at_server_vehicle_number]):
+                resource_demands[base_idx + j] = task_cycles[client_idx][task_idx] * task_sizes[client_idx][task_idx]
+
+        # 分配边缘节点资源
+        edge_base_idx = server_base_idx + self._server_vehicle_num * self._maximum_task_offloaded_at_server_vehicle_number
+        for i in range(self._edge_num):
+            tasks = task_offloaded_at_edge_nodes[f"edge_node_{i}"]
+            base_idx = edge_base_idx + i * self._maximum_task_offloaded_at_edge_node_number
+            
+            for j, (client_idx, task_idx) in enumerate(tasks[:self._maximum_task_offloaded_at_edge_node_number]):
+                resource_demands[base_idx + j] = task_cycles[client_idx][task_idx] * task_sizes[client_idx][task_idx]
+
+        # 分配云服务器资源
+        cloud_base_idx = edge_base_idx + self._edge_num * self._maximum_task_offloaded_at_edge_node_number
+        tasks = task_offloaded_at_cloud["cloud"]
+        for j, (client_idx, task_idx) in enumerate(tasks[:self._maximum_task_offloaded_at_cloud_number]):
+            resource_demands[cloud_base_idx + j] = task_cycles[client_idx][task_idx] * task_sizes[client_idx][task_idx]
 
         return np.maximum(resource_demands, 0)  # 确保需求非负
 

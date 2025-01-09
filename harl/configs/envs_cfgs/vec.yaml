@@ -61,3 +61,5 @@ penalty_weight: 1                          # 1
 
 v2v_n_components: 10                  # 设定 V2V 压缩后的维度
 v2i_n_components: 10                  # 设定 V2I 压缩后的维度
+
+is_network_output: False              # Action 是否由强化学习生成
