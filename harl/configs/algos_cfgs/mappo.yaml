@@ -15,9 +15,9 @@ train:
   # number of parallel environments for training data collection
   n_rollout_threads: 20
   # number of total training steps
-  num_env_steps: 10000000
+  num_env_steps: 10000000           # steps 数量统一
   # number of steps per environment per training data collection
-  episode_length: 200
+  episode_length: 50
   # logging interval
   log_interval: 5
   # evaluation interval
@@ -45,9 +45,9 @@ render:
 model:
   # network parameters
   # hidden sizes for mlp module in the network
-  hidden_sizes: [128, 128]
+  hidden_sizes: [1024, 1024]
   # activation function, choose from sigmoid, tanh, relu, leaky_relu, selu
-  activation_func: relu
+  activation_func: leaky_relu
   # whether to use feature normalization
   use_feature_normalization: True
   # initialization method for network parameters, choose from xavier_uniform_, orthogonal_, ...
@@ -65,11 +65,11 @@ model:
   data_chunk_length: 10
   # optimizer parameters
   # actor learning rate
-  lr: 0.0005
+  lr: 0.00001
   # critic learning rate
-  critic_lr: 0.0005
+  critic_lr: 0.000001
   # eps in Adam
-  opti_eps: 0.00001
+  opti_eps: 0.0000001
   # weight_decay in Adam
   weight_decay: 0
   # parameters of diagonal Gaussian distribution
@@ -85,7 +85,7 @@ algo:
   # whether to use clipped value loss
   use_clipped_value_loss: True
   # clip parameter
-  clip_param: 0.2
+  clip_param: 0.1
   # number of mini-batches per epoch for actor update
   actor_num_mini_batch: 1
   # number of mini-batches per epoch for critic update
@@ -97,7 +97,7 @@ algo:
   # whether to clip gradient norm
   use_max_grad_norm: True
   # max gradient norm
-  max_grad_norm: 10.0
+  max_grad_norm: 5.0
   # whether to use Generalized Advantage Estimation (GAE)
   use_gae: True
   # discount factor
@@ -113,9 +113,9 @@ algo:
   # method of aggregating the probability of multi-dimensional actions, choose from prod, mean
   action_aggregation: prod
   # whether to share parameter among actors
-  share_param: True
+  share_param: Fasle
   # whether to use a fixed optimisation order
   fixed_order: True
 logger:
   # logging directory
-  log_dir: "./results"
+  log_dir: "/root/tf-logs/"

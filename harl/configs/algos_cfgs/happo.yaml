@@ -3,7 +3,7 @@ seed:   # 用于控制随机数生成器的种子
   # whether to use the specified seed
   seed_specify: True      # 是否使用指定的种子
   # seed
-  seed: 42                 # 随机数种子值，确保实验可以复现
+  seed: 1                 # 随机数种子值，确保实验可以复现
 device:       # 有关硬件设备的设置
   # whether to use CUDA
   cuda: True          # 是否使用 CUDA（GPU 加速）
@@ -71,7 +71,7 @@ model:    # 模型和网络参数设置
   critic_lr: 0.000001             # Critic 的学习率
   # critic_lr: 0.0005
   # eps in Adam
-  opti_eps: 0.00001             #  Adam 优化器中的 epsilon 值
+  opti_eps: 0.0000001             #  Adam 优化器中的 epsilon 值
   # weight_decay in Adam
   weight_decay: 0               # Adam 优化器的权重衰减
   # parameters of diagonal Gaussian distribution

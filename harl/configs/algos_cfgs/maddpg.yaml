@@ -13,9 +13,9 @@ device:
   torch_threads: 4
 train:
   # number of parallel environments for training data collection
-  n_rollout_threads: 10
+  n_rollout_threads: 20
   # number of total steps
-  num_env_steps: 10000000
+  num_env_steps: 10000000         # steps 数量统一
   # number of warmup steps
   warmup_steps: 10000
   # number of steps per train
@@ -47,7 +47,7 @@ render:
 model:
   # network parameters
   # hidden sizes for mlp module in the network
-  hidden_sizes: [128, 128]
+  hidden_sizes: [1024, 1024]
   # activation function, choose from sigmoid, tanh, relu, leaky_relu, selu
   activation_func: relu
   # final activation function, choose from sigmoid, tanh, relu, leaky_relu, selu
@@ -76,4 +76,4 @@ algo:
   fixed_order: True
 logger:
   # logging directory
-  log_dir: "./results"
+  log_dir: "/root/tf-logs/"

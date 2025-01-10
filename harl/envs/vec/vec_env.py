@@ -2,6 +2,7 @@ import gym
 import math
 import copy
 import numpy as np
+import random
 import time
 from typing import List, Dict, Tuple
 from utilities.noma import obtain_channel_gains_between_client_vehicle_and_server_vehicles, obtain_channel_gains_between_vehicles_and_edge_nodes
@@ -104,10 +105,13 @@ class VECEnv:
         self._seed = self.args["seed"]
         # generate the seeds for the tasks
         np.random.seed(self._seed)
-        self._task_seeds = np.random.randint(0, 10000, self._task_num)
-        self._vehicle_seeds = np.random.randint(0, 10000, self._vehicle_num)
-        self._edge_seeds = np.random.randint(0, 10000, self._edge_num)
-        self._cloud_seed = np.random.randint(0, 10000)
+        random.seed(self._seed)
+
+        # Generate deterministic seeds using fixed offsets
+        self._task_seeds = np.array([self._seed + i for i in range(self._task_num)])
+        self._vehicle_seeds = np.array([self._seed + self._task_num + i for i in range(self._vehicle_num)])
+        self._edge_seeds = np.array([self._seed + self._task_num + self._vehicle_num + i for i in range(self._edge_num)])
+        self._cloud_seed = self._seed + self._task_num + self._vehicle_num + self._edge_num
         
         self._penalty_weight = self.args["penalty_weight"]
                         
