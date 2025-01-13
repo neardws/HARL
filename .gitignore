@@ -424,3 +424,6 @@ results/*
 draw/
 draw/*
 
+env_configs/
+env_configs/*
+
