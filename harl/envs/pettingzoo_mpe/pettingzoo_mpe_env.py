@@ -52,6 +52,11 @@ class PettingZooMPEEnv:
         """
         return local_obs, global_state, rewards, dones, infos, available_actions
         """
+        print("*"*50)
+        print("actions", actions)
+        print("*"*50)
+
+
         if self.discrete:
             obs, rew, term, trunc, info = self.env.step(self.wrap(actions.flatten()))
         else:

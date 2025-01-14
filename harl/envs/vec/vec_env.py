@@ -95,7 +95,8 @@ class VECEnv:
         self._v2v_n_components: int = self.args["v2v_n_components"]
         self._v2i_n_components: int = self.args["v2i_n_components"]  
 
-        self._is_network_output: bool = self.args["is_network_output"]
+        self._using_PPO = self.args["using_PPO"]
+        self._algorithm_type = self.args["algorithm_type"]
 
         self.v2v_pca = PCA(n_components=self._v2v_n_components)  # 设定 V2V 压缩后的维度
         self.v2i_pca = PCA(n_components=self._v2i_n_components)  # 设定 V2I 压缩后的维度
@@ -263,29 +264,11 @@ class VECEnv:
         # 拟合 PCA 模型
         self.v2i_pca.fit(initial_v2i_data)
         
-        # v2v_connections = np.zeros((self._slot_length, ))
-        # for t in range(self._slot_length):
-        #     for i in range(self._client_vehicle_num):
-        #         for j in range(self._server_vehicle_num):
-        #             if self._vehicles_under_V2V_communication_range[i][j][t] == 1:
-        #                 v2v_connections[t] += 1
-        # print("v2v_connections: ", v2v_connections)
-        # print("avg v2v_connections: ", np.mean(v2v_connections))
-        
         self._vehicles_under_V2I_communication_range : np.ndarray = get_vehicles_under_V2I_communication_range(
             client_vehicles=self._client_vehicles,
             edge_nodes=self._edge_nodes,
             time_slot_num=self._slot_length,
         )
-        
-        # v2i_connections = np.zeros((self._slot_length, ))
-        # for t in range(self._slot_length):
-        #     for i in range(self._client_vehicle_num):
-        #         for j in range(self._edge_num):
-        #             if self._vehicles_under_V2I_communication_range[i][j][t] == 1:
-        #                 v2i_connections[t] += 1
-        # print("v2i_connections: ", v2i_connections)
-        # print("avg v2i_connections: ", np.mean(v2i_connections))
         
         self._channel_gains_between_client_vehicle_and_server_vehicles = obtain_channel_gains_between_client_vehicle_and_server_vehicles(
             distance_matrix=self._distance_matrix_between_client_vehicles_and_server_vehicles,
@@ -497,18 +480,20 @@ class VECEnv:
         self._done = False
         
         self._resutls_file_name = "/root/HARL/results/" \
-            + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) 
         
         self.init_results_to_store()
         
         print("max_action: ", self._max_action)
         print("max_observation: ", self._max_observation)
         
-        # self._init = True
+        self._init = True
         
-        # self.init_maximum_cost_and_phi_t()
+        self.init_maximum_cost_and_phi_t()
         
         self._init = False
+
+        self._env_tag = "scenario_" + str(self.args["scenario"]) + "_vehicle_number_" + str(self._vehicle_num) + "_arrival_rate_" + str(self._min_task_arrival_rate_of_vehicles)
 
     def get_client_vehicle_num(self):
         return self._client_vehicle_num
@@ -599,7 +584,10 @@ class VECEnv:
         actions = []
         for _ in range(agent_number):
             # generate the random values in the range of 0 to 1 of the size of max_action
-            action = np.random.rand(max_action)
+            if self._using_PPO:
+                action = np.random.uniform(-1, 1, max_action)
+            else:
+                action = np.random.rand(max_action)
             actions.append(action)
         return actions
     
@@ -753,7 +741,7 @@ class VECEnv:
         
         # print("actions: ", actions) 
 
-        if self._is_network_output:
+        if self._using_PPO:
             processed_actions = self.process_actions(actions)   # covert the actions into the value of [0, 1]
         else:
             processed_actions = actions
@@ -2143,7 +2131,10 @@ class VECEnv:
         return x / total_sum
     
     def get_env_tag(self):
-        return "vec_env"
+        return self._env_tag
+
+    def get_algorithm_type(self):
+        return self._algorithm_type
     
     def save_results(
         self,
@@ -2153,6 +2144,7 @@ class VECEnv:
         """add results to the file"""
         try:
             env_tag = env_tag if env_tag != "" else self.get_env_tag()
+            alg_type = alg_type if alg_type != "" else self.get_algorithm_type()
             sample_file_name = self._resutls_file_name + "_" + env_tag + "_" + alg_type + ".txt"
             complete_file_name = self._resutls_file_name + "_" + env_tag + "_" + alg_type + "_complete.txt"
             with open(sample_file_name, "a+") as f:

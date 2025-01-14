@@ -15,7 +15,7 @@ train:    # 训练过程中的多个参数。
   # number of parallel environments for training data collection
   n_rollout_threads: 20       # 进行训练数据采集时并行环境的数量
   # number of total training steps    # the real episodes is num_env_steps // episode_length // n_rollout_theads
-  num_env_steps: 2580000      # 总的训练步骤数，即环境总步数    120000 次 等于 100 轮迭代 约 2 h
+  num_env_steps: 3000000      # 总的训练步骤数，即环境总步数    120000 次 等于 100 轮迭代 约 2 h
   # number of steps per environment per training data collection
   episode_length: 50         # 每个环境下每次训练数据采集的步数
   # logging interval

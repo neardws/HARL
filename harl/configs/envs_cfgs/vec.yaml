@@ -12,8 +12,9 @@ min_cpu_cycles_of_tasks: 100        # cycles/bit
 max_cpu_cycles_of_tasks: 500        # cycles/bit
 
 vehicle_num: 70
-vehicle_mobility_file_name_key: "I-80-Emeryville-CA-1650feet-0500pm-0515pm"
-vehicular_trajectories_processing_start_time: "2005-04-13 17:00:00"
+scenario: 1
+vehicle_mobility_file_name_key: "Lankershim-Boulevard-LosAngeles-CA-1600feet"
+vehicular_trajectories_processing_start_time: "2005-06-16 08:30:00"
 vehicular_trajectories_processing_selection_way: "max_duration"
 vehicular_trajectories_processing_filling_way: "linear"
 vehicular_trajectories_processing_chunk_size: 100000
@@ -61,5 +62,3 @@ penalty_weight: 1                          # 1
 
 v2v_n_components: 10                  # 设定 V2V 压缩后的维度
 v2i_n_components: 10                  # 设定 V2I 压缩后的维度
-
-is_network_output: False              # Action 是否由强化学习生成
