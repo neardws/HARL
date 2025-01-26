@@ -1,5 +1,4 @@
 """Train an algorithm."""
-from sys import argv
 from harl.runners import RUNNER_REGISTRY
 import yaml
 import os
@@ -40,8 +39,15 @@ if __name__ == "__main__":
 
     with open(algo_cfg_path, "r", encoding="utf-8") as file:
         algo_args = yaml.load(file, Loader=yaml.FullLoader)
+    
+    args = {
+        'algo': 'happo',
+        'env': 'vec',
+        'exp_name': 'scenario_1',
+        'load_config': ''
+    }
 
-    runner = RUNNER_REGISTRY[algo](argv, algo_args, env_args)
+    runner = RUNNER_REGISTRY[algo](args, algo_args, env_args)
     runner.run()
     runner.close()
 

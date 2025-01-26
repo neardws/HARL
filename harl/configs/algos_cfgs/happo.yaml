@@ -10,12 +10,12 @@ device:       # 有关硬件设备的设置
   # whether to set CUDA deterministic
   cuda_deterministic: True      # 是否设置 CUDA 为确定性模式，确保结果可复现
   # arg to torch.set_num_threads
-  torch_threads: 4              # PyTorch 使用的线程数
+  torch_threads: 18              # PyTorch 使用的线程数
 train:    # 训练过程中的多个参数。
   # number of parallel environments for training data collection
-  n_rollout_threads: 20       # 进行训练数据采集时并行环境的数量
+  n_rollout_threads: 18       # 进行训练数据采集时并行环境的数量
   # number of total training steps    # the real episodes is num_env_steps // episode_length // n_rollout_theads
-  num_env_steps: 3000000      # 总的训练步骤数，即环境总步数    120000 次 等于 100 轮迭代 约 2 h
+  num_env_steps: 9000000      # 总的训练步骤数，即环境总步数    1百万 次 等于 1000 轮迭代 约 2 h
   # number of steps per environment per training data collection
   episode_length: 50         # 每个环境下每次训练数据采集的步数
   # logging interval
@@ -32,11 +32,11 @@ train:    # 训练过程中的多个参数。
   model_dir: ~                    # 模型加载目录；如果设置为 ~，表示随机初始化模型 
 eval:     #  评估过程的相关参数
   # whether to use evaluation
-  use_eval: True                        # 是否执行评估
+  use_eval: False                      # 是否执行评估
   # number of parallel environments for evaluation
-  n_eval_rollout_threads: 10            # 评估时的并行环境数量
+  n_eval_rollout_threads: 1            # 评估时的并行环境数量
   # number of episodes per evaluation
-  eval_episodes: 20                     # 每次评估的 episode 数量
+  eval_episodes: 10                     # 每次评估的 episode 数量
 render:     # 渲染过程的参数
   # whether to use render
   use_render: False                     # 是否进行渲染
@@ -65,10 +65,10 @@ model:    # 模型和网络参数设置
   data_chunk_length: 10                 # 数据分块长度，仅在使用递归策略时有用
   # optimizer parameters
   # actor learning rate
-  lr: 0.00001                    # Actor 的学习率
+  lr: 0.0001                    # Actor 的学习率
   # lr: 0.0005
   # critic learning rate
-  critic_lr: 0.000001             # Critic 的学习率
+  critic_lr: 0.0001             # Critic 的学习率
   # critic_lr: 0.0005
   # eps in Adam
   opti_eps: 0.0000001             #  Adam 优化器中的 epsilon 值
@@ -81,9 +81,9 @@ model:    # 模型和网络参数设置
 algo:   # 算法的超参数设置
   # ppo parameters
   # number of epochs for actor update
-  ppo_epoch: 5            # Actor 更新的 epochs 数量
+  ppo_epoch: 1            # Actor 更新的 epochs 数量
   # number of epochs for critic update
-  critic_epoch: 5         # Critic 更新的 epochs 数量
+  critic_epoch: 1         # Critic 更新的 epochs 数量
   # whether to use clipped value loss
   use_clipped_value_loss: True      # 是否使用剪切价值损失
   # clip parameter
